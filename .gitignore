@@ -38,9 +38,9 @@ prestd
 main
 /dist
 bin/
-prest.toml
 /cmd/prestd/prestd
 docbuild/
 /vendor
 .clj-kondo
 *debug*
+/prest

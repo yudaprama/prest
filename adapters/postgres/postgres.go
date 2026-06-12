@@ -1843,22 +1843,22 @@ func (adapter *Postgres) SetDatabase(name string) {
 
 // SelectSQL generate select sql
 func (adapter *Postgres) SelectSQL(selectStr string, database string, schema string, table string) string {
-	return fmt.Sprintf(`%s "%s"."%s"."%s"`, selectStr, database, schema, table)
+	return fmt.Sprintf(`%s "%s"."%s"."%s"`, selectStr, connection.ResolveDBName(database), schema, table)
 }
 
 // InsertSQL generate insert sql
 func (adapter *Postgres) InsertSQL(database string, schema string, table string, names string, placeholders string) string {
-	return fmt.Sprintf(statements.InsertQuery, database, schema, table, names, placeholders)
+	return fmt.Sprintf(statements.InsertQuery, connection.ResolveDBName(database), schema, table, names, placeholders)
 }
 
 // DeleteSQL generate delete sql
 func (adapter *Postgres) DeleteSQL(database string, schema string, table string) string {
-	return fmt.Sprintf(statements.DeleteQuery, database, schema, table)
+	return fmt.Sprintf(statements.DeleteQuery, connection.ResolveDBName(database), schema, table)
 }
 
 // UpdateSQL generate update sql
 func (adapter *Postgres) UpdateSQL(database string, schema string, table string, setSyntax string) string {
-	return fmt.Sprintf(statements.UpdateQuery, database, schema, table, setSyntax)
+	return fmt.Sprintf(statements.UpdateQuery, connection.ResolveDBName(database), schema, table, setSyntax)
 }
 
 // DatabaseWhere generate database where syntax

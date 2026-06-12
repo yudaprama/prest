@@ -1,0 +1,14 @@
+[pg]
+url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"
+single = false
+
+[jwt]
+default = false
+
+[[pg.urls]]
+name = "yarsew"
+url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"
+
+[[pg.urls]]
+name = "ogmami"
+url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.ogmamikstxzqkpitnsiu.supabase.co:5432/postgres?sslmode=require"

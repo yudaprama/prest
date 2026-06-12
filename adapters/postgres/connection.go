@@ -26,6 +26,14 @@ func AddDatabaseToPool(name string) (*sqlx.DB, error) {
 	return connection.AddDatabaseToPool(name)
 }
 
+// AddURI registers a database connection built from a raw DSN and stores
+// it in the pool keyed by the DSN itself. This exposes connection.AddURI
+// so that packages outside adapters (e.g. cmd/prestd) can register
+// multiple independently-configured connection strings at startup.
+func AddURI(name, dsn string) (*sqlx.DB, error) {
+	return connection.AddURI(name, dsn)
+}
+
 // MustGet get postgres connection
 func MustGet() *sqlx.DB {
 	return connection.MustGet()
