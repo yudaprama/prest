@@ -22,7 +22,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/buntdb v1.3.2
 	github.com/urfave/negroni/v3 v3.1.1
-	gopkg.in/square/go-jose.v2 v2.6.0
 )
 
 require (

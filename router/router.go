@@ -17,13 +17,6 @@ import (
 func GetRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 
-	if config.PrestConf.AuthEnabled {
-		// can be db specific in the future, there's bellow a proposal
-		// maybe disable on multiple databases
-		router.HandleFunc("/auth", controllers.Auth).Methods("POST")
-		// multiple DB suggestion:
-		// router.HandleFunc("/db/{database}/auth", controllers.Auth).Methods("POST")
-	}
 	router.HandleFunc("/databases", controllers.GetDatabases).Methods("GET")
 	router.HandleFunc("/schemas", controllers.GetSchemas).Methods("GET")
 	router.HandleFunc("/tables", controllers.GetTables).Methods("GET")
@@ -46,7 +39,6 @@ func GetRouter() *mux.Router {
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.DeleteFromTable).Methods("DELETE")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.UpdateTable).Methods("PUT", "PATCH")
 	router.PathPrefix("/").Handler(negroni.New(
-		middlewares.AuthMiddleware(config.PrestConf.JWTAlgo),
 		middlewares.AccessControl(),
 		middlewares.ExposureMiddleware(),
 		middlewares.CacheMiddleware(&config.PrestConf.Cache),
