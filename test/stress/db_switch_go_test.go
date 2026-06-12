@@ -32,7 +32,7 @@ func TestMultiDatabaseSwitching(t *testing.T) {
 	t.Run("sequential_switching", func(t *testing.T) {
 		for i := 0; i < iterations; i++ {
 			for _, db := range databases {
-				req := httptest.NewRequest("GET", fmt.Sprintf("/%s/public/tables", db), nil)
+				req := httptest.NewRequest("GET", fmt.Sprintf("/%s/public", db), nil)
 				w := httptest.NewRecorder()
 				
 				router := router.GetRouter()
@@ -62,7 +62,7 @@ func TestMultiDatabaseSwitching(t *testing.T) {
 				
 				for j := 0; j < iterations; j++ {
 					db := databases[j%len(databases)]
-					req := httptest.NewRequest("GET", fmt.Sprintf("/%s/public/tables", db), nil)
+					req := httptest.NewRequest("GET", fmt.Sprintf("/%s/public", db), nil)
 					w := httptest.NewRecorder()
 					
 					router := router.GetRouter()
@@ -120,7 +120,7 @@ func TestDatabaseSwitchingUnderLoad(t *testing.T) {
 					return
 				default:
 					db := databases[atomic.AddInt64(&requestCount, 1)%int64(len(databases))]
-					req := httptest.NewRequest("GET", fmt.Sprintf("/%s/public/tables", db), nil)
+					req := httptest.NewRequest("GET", fmt.Sprintf("/%s/public", db), nil)
 					w := httptest.NewRecorder()
 					
 					router := router.GetRouter()
@@ -171,7 +171,7 @@ func TestDatabaseIsolation(t *testing.T) {
 		
 		go func() {
 			defer wg.Done()
-			req := httptest.NewRequest("GET", "/yarsew/public/tables", nil)
+			req := httptest.NewRequest("GET", "/yarsew/public", nil)
 			w := httptest.NewRecorder()
 			router := router.GetRouter()
 			router.ServeHTTP(w, req)
@@ -183,7 +183,7 @@ func TestDatabaseIsolation(t *testing.T) {
 		
 		go func() {
 			defer wg.Done()
-			req := httptest.NewRequest("GET", "/ogmami/public/tables", nil)
+			req := httptest.NewRequest("GET", "/ogmami/public", nil)
 			w := httptest.NewRecorder()
 			router := router.GetRouter()
 			router.ServeHTTP(w, req)

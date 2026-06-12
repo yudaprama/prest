@@ -40,42 +40,42 @@ echo ""
 
 # Check 3: DB1 access
 echo "3. Testing database 1 ($DB1)..."
-db1_code=$(curl -s -w "%{http_code}" -o /dev/null "$HOST/$DB1/public/tables" 2>/dev/null || echo "000")
+db1_code=$(curl -s -w "%{http_code}" -o /dev/null "$HOST/$DB1/public" 2>/dev/null || echo "000")
 if [ "$db1_code" = "200" ]; then
-    echo -e "   ${GREEN}✓${NC} $DB1/public/tables => $db1_code OK"
+    echo -e "   ${GREEN}✓${NC} $DB1/public => $db1_code OK"
 else
-    echo -e "   ${RED}✗${NC} $DB1/public/tables => $db1_code FAILED"
+    echo -e "   ${RED}✗${NC} $DB1/public => $db1_code FAILED"
     exit 1
 fi
 echo ""
 
 # Check 4: DB2 access
 echo "4. Testing database 2 ($DB2)..."
-db2_code=$(curl -s -w "%{http_code}" -o /dev/null "$HOST/$DB2/public/tables" 2>/dev/null || echo "000")
+db2_code=$(curl -s -w "%{http_code}" -o /dev/null "$HOST/$DB2/public" 2>/dev/null || echo "000")
 if [ "$db2_code" = "200" ]; then
-    echo -e "   ${GREEN}✓${NC} $DB2/public/tables => $db2_code OK"
+    echo -e "   ${GREEN}✓${NC} $DB2/public => $db2_code OK"
 else
-    echo -e "   ${RED}✗${NC} $DB2/public/tables => $db2_code FAILED"
+    echo -e "   ${RED}✗${NC} $DB2/public => $db2_code FAILED"
     exit 1
 fi
 echo ""
 
-# Check 5: Schema listing per database
-echo "5. Testing schema listing per database..."
-db1_schemas=$(curl -s -w "%{http_code}" -o /dev/null "$HOST/schemas?dbname=$DB1" 2>/dev/null || echo "000")
-db2_schemas=$(curl -s -w "%{http_code}" -o /dev/null "$HOST/schemas?dbname=$DB2" 2>/dev/null || echo "000")
+# Check 5: Schema access per database (use /{database}/{schema} to verify pool resolution)
+echo "5. Testing schema access per database..."
+db1_schemas=$(curl -s -w "%{http_code}" -o /dev/null "$HOST/$DB1/public" 2>/dev/null || echo "000")
+db2_schemas=$(curl -s -w "%{http_code}" -o /dev/null "$HOST/$DB2/public" 2>/dev/null || echo "000")
 if [ "$db1_schemas" = "200" ] && [ "$db2_schemas" = "200" ]; then
-    echo -e "   ${GREEN}✓${NC} Schema listing OK for both databases"
+    echo -e "   ${GREEN}✓${NC} Schema access OK for both databases"
 else
-    echo -e "   ${YELLOW}⚠${NC} Schema listing: DB1=$db1_schemas DB2=$db2_schemas"
+    echo -e "   ${YELLOW}⚠${NC} Schema access: DB1=$db1_schemas DB2=$db2_schemas"
 fi
 echo ""
 
 # Warmup: Send a few requests to establish connections
 echo "6. Warming up connection pool..."
 for i in $(seq 1 5); do
-    curl -s -o /dev/null "$HOST/$DB1/public/tables" 2>/dev/null || true
-    curl -s -o /dev/null "$HOST/$DB2/public/tables" 2>/dev/null || true
+    curl -s -o /dev/null "$HOST/$DB1/public" 2>/dev/null || true
+    curl -s -o /dev/null "$HOST/$DB2/public" 2>/dev/null || true
     echo -ne "   Warmup round $i/5\r"
 done
 echo -e "   ${GREEN}✓${NC} Connection pool warmed up"

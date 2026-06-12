@@ -30,11 +30,11 @@ start_time=$(date +%s)
 echo "Test 1: Sequential database switching..."
 for i in $(seq 1 $ITERATIONS); do
     # Request to DB1
-    response1=$(curl -s -w "\n%{http_code}" "$HOST/$DB1/public/tables" 2>/dev/null || echo "000")
+    response1=$(curl -s -w "\n%{http_code}" "$HOST/$DB1/public" 2>/dev/null || echo "000")
     http_code1=$(echo "$response1" | tail -n1)
     
     # Request to DB2
-    response2=$(curl -s -w "\n%{http_code}" "$HOST/$DB2/public/tables" 2>/dev/null || echo "000")
+    response2=$(curl -s -w "\n%{http_code}" "$HOST/$DB2/public" 2>/dev/null || echo "000")
     http_code2=$(echo "$response2" | tail -n1)
     
     if [ "$http_code1" = "200" ] && [ "$http_code2" = "200" ]; then
@@ -59,7 +59,7 @@ echo ""
 echo "Test 2: Rapid alternating requests..."
 for i in $(seq 1 $ITERATIONS); do
     db=$([[ $((i % 2)) -eq 0 ]] && echo "$DB1" || echo "$DB2")
-    response=$(curl -s -w "\n%{http_code}" "$HOST/$db/public/tables" 2>/dev/null || echo "000")
+    response=$(curl -s -w "\n%{http_code}" "$HOST/$db/public" 2>/dev/null || echo "000")
     http_code=$(echo "$response" | tail -n1)
     
     if [ "$http_code" = "200" ]; then
@@ -80,21 +80,24 @@ done
 echo ""
 echo ""
 
-# Test 3: Schema listing on both databases
+# Test 3: Schema operations on different databases
+# Use /{database}/{schema} to verify each DB's connection is properly resolved
 echo "Test 3: Schema operations on different databases..."
 for i in $(seq 1 50); do
-    response1=$(curl -s -w "\n%{http_code}" "$HOST/schemas?dbname=$DB1" 2>/dev/null || echo "000")
+    response1=$(curl -s -w "\n%{http_code}" "$HOST/$DB1/public" 2>/dev/null || echo "000")
     http_code1=$(echo "$response1" | tail -n1)
-    
-    response2=$(curl -s -w "\n%{http_code}" "$HOST/schemas?dbname=$DB2" 2>/dev/null || echo "000")
+
+    response2=$(curl -s -w "\n%{http_code}" "$HOST/$DB2/public" 2>/dev/null || echo "000")
     http_code2=$(echo "$response2" | tail -n1)
-    
+
     if [ "$http_code1" = "200" ] && [ "$http_code2" = "200" ]; then
         ((success+=2))
         echo -ne "${GREEN}.${NC}"
     else
         ((failed+=2))
         echo -ne "${RED}F${NC}"
+        echo ""
+        echo "Failed at iteration $i: DB1=$http_code1, DB2=$http_code2"
     fi
 done
 
@@ -110,7 +113,7 @@ echo "Total requests: $((success + failed))"
 echo -e "Successful: ${GREEN}$success${NC}"
 echo -e "Failed: ${RED}$failed${NC}"
 echo "Duration: ${duration}s"
-echo "Requests/sec: $(awk "BEGIN {printf \"%.2f\", ($success + $failed) / $duration}")"
+echo "Requests/sec: $(echo "scale=2; ($success + $failed) / $duration" | bc)"
 
 if [ $failed -eq 0 ]; then
     echo -e "${GREEN}✓ All tests passed!${NC}"

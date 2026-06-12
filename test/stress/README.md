@@ -1,170 +1,130 @@
 # pREST Multi-Database Switching Stress Tests
 
-This directory contains stress test scripts for testing the multi-database connection switching feature in pREST.
+Stress test scripts for the multi-database connection switching feature.
 
 ## Prerequisites
 
-1. **pREST server running** with multi-database configuration:
-   ```toml
-   [pg]
-   url = "postgresql://..."
-   single = false
-   
-   [[pg.urls]]
-   name = "yarsew"
-   url = "postgresql://..."
-   
-   [[pg.urls]]
-   name = "ogmami"
-   url = "postgresql://..."
-   ```
+**pREST** with multi-database config (`prest.toml`):
 
-2. **Environment variables** (optional):
-   ```bash
-   export PREST_HOST="http://localhost:3000"
-   export DB1="yarsew"
-   export DB2="ogmami"
-   ```
+```toml
+[pg]
+url = "postgresql://user:pass@host:5432/maindb?sslmode=require"
+single = false
+
+[[pg.urls]]
+name = "yarsew"
+url = "postgresql://user:pass@host1:5432/db1?sslmode=require"
+
+[[pg.urls]]
+name = "ogmami"
+url = "postgresql://user:pass@host2:5432/db2?sslmode=require"
+```
+
+**Environment variables** (optional):
+
+```bash
+export PREST_HOST="http://localhost:3000"
+export DB1="yarsew"
+export DB2="ogmami"
+```
+
+## Verified URL Patterns
+
+The stress tests use these pREST routes (validated against the router):
+
+| URL | Purpose | Status |
+|-----|---------|--------|
+| `GET /{database}/{schema}` | List tables in schema | ✅ 200 |
+| `GET /databases` | List databases | ✅ 200 |
+| `GET /_health` | Health check | ✅ 200 |
+
+> **Note**: `/schemas` does not support a `?dbname=` filter parameter; it uses the
+> default connection. For per-database schema access, use `/{database}/{schema}`.
+> The route `/{database}/{schema}/{table}` treats the last segment as a **table
+> name**, not the tables listing endpoint.
 
 ## Test Scripts
 
 ### 1. Health Check (`db_switch_health_check.sh`)
-Verifies both databases are accessible before running stress tests.
+
+Pre-flight check that both databases are reachable and the connection pool is
+warm.
 
 ```bash
 ./test/stress/db_switch_health_check.sh
 ```
 
+Validates: `/_health`, `/databases`, `/{DB1}/public`, `/{DB2}/public`.
+
 ### 2. Basic Stress Test (`db_switch_basic_test.sh`)
-Sequential and alternating requests between databases.
+
+Sequential and alternating requests between two databases.
 
 ```bash
-# Default: 100 iterations
-./test/stress/db_switch_basic_test.sh
-
-# Custom iterations
+./test/stress/db_switch_basic_test.sh             # 100 iterations
 ITERATIONS=500 ./test/stress/db_switch_basic_test.sh
 ```
 
+Runs 3 sub-tests:
+- Sequential DB1 → DB2 round trips
+- Rapid alternation between DBs
+- Repeated `/{database}/public` access on both DBs
+
 ### 3. Concurrent Stress Test (`db_switch_concurrent_test.sh`)
-Parallel requests from multiple workers to test connection pool behavior.
+
+Parallel workers hitting different databases simultaneously to test pool
+thread-safety and connection isolation.
 
 ```bash
-# Default: 10 workers, 50 iterations each
 ./test/stress/db_switch_concurrent_test.sh
-
-# Custom configuration
 CONCURRENT=20 ITERATIONS=100 ./test/stress/db_switch_concurrent_test.sh
 ```
 
+Runs 3 sub-tests:
+- N workers → single DB
+- N workers → alternating DBs
+- N workers → mixed endpoints (tables/databases)
+
 ### 4. Load Test (`db_switch_load_test.sh`)
-Sustained load testing with latency measurements.
+
+Sustained load with latency percentile measurement (P50, P95, P99).
 
 ```bash
-# Default: 30s duration, 100 req/s target, 20 workers
 ./test/stress/db_switch_load_test.sh
-
-# Custom configuration
-DURATION=60 RATE=200 WORKERS=50 ./test/stress/db_switch_load_test.sh
+DURATION=60 WORKERS=50 ./test/stress/db_switch_load_test.sh
 ```
 
 ### 5. Go Integration Test (`db_switch_go_test.go`)
-Programmatic stress test using Go's testing framework.
+
+Programmatic Go tests using `httptest`:
 
 ```bash
-# Run all stress tests
-go test -v ./test/stress/...
-
-# Run specific test
-go test -v -run TestMultiDatabaseSwitching ./test/stress/
-
-# Skip stress tests
-go test -v -short ./test/stress/...
+go test -v ./test/stress/...                         # full suite
+go test -v -short ./test/stress/...                  # skip long tests
+go test -v -run TestDatabaseIsolation ./test/stress/ # one test
 ```
 
-## Test Scenarios
+Tests:
+- `TestMultiDatabaseSwitching` — sequential + concurrent
+- `TestDatabaseSwitchingUnderLoad` — time-bounded load
+- `TestDatabaseIsolation` — cross-DB contamination check
 
-### Sequential Switching
-- Alternates between two databases in sequence
-- Tests basic connection switching without concurrency
-- Validates each database responds correctly
+### 6. Master Runner (`run_all_tests.sh`)
 
-### Concurrent Switching
-- Multiple workers hitting different databases simultaneously
-- Tests connection pool thread-safety
-- Validates no connection leaks or race conditions
-
-### Load Testing
-- Sustained high request rate
-- Measures latency percentiles (P50, P95, P99)
-- Identifies performance bottlenecks
-
-### Database Isolation
-- Verifies queries to one database don't affect another
-- Tests connection pool isolation
-- Validates no cross-database contamination
-
-## Metrics Reported
-
-- **Total requests**: Sum of all HTTP requests made
-- **Success rate**: Percentage of 200 OK responses
-- **Requests/sec**: Throughput measurement
-- **Latency (ms)**: Min, Avg, P50, P95, P99, Max
-- **Failure rate**: Percentage of failed requests
-
-## Expected Results
-
-With a properly configured multi-database setup:
-
-- **Success rate**: Should be 100% (all 200 OK)
-- **Latency P95**: Typically < 100ms for local databases
-- **Throughput**: Varies by hardware, 100-1000+ req/sec
-
-## Troubleshooting
-
-### Connection Pool Exhaustion
-If you see connection errors:
-```bash
-# Check pool settings in config
-[pg]
-max_idle_conn = 10
-max_open_conn = 100
-```
-
-### High Latency
-- Check network latency to databases
-- Verify database server load
-- Review connection pool sizing
-
-### Authentication Errors
-- Verify connection strings are correct
-- Check database credentials
-- Ensure SSL mode is appropriate
-
-## Integration with CI/CD
+Runs every script in order with pass/fail summary. Aborts on health-check failure.
 
 ```bash
-# Example: Run health check before tests
-./test/stress/db_switch_health_check.sh && \
-./test/stress/db_switch_basic_test.sh && \
-go test -v ./test/stress/...
+./test/stress/run_all_tests.sh
 ```
 
-## Performance Tuning
+### 7. Make Targets (`Makefile`)
 
-For better stress test performance:
-
-1. **Increase worker count**: `CONCURRENT=50`
-2. **Extend duration**: `DURATION=120`
-3. **Monitor pREST metrics**: Check server logs for errors
-4. **Database tuning**: Optimize PostgreSQL settings
-
-## Architecture Notes
-
-The multi-database feature uses:
-- **Connection pool**: `map[string]*sqlx.DB` with mutex protection
-- **Name resolution**: Logical name → actual database name mapping
-- **Context propagation**: Database name passed via context
-- **Thread-safe access**: Concurrent request handling
-
-See `adapters/postgres/internal/connection/conn.go` for implementation details.
+```bash
+make -C test/stress stress-test-health
+make -C test/stress stress-test-basic
+make -C test/stress stress-test-concurrent
+make -C test/stress stress-test-load
+make -C test/stress stress-test-go
+make -C test/stress stress-test-quick   # 5 workers, 10–20 iterations
+make -C test/stress stress-test        # full suite (health + all)
+```

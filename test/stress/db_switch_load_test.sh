@@ -43,10 +43,10 @@ load_worker() {
         local op=$((request_count % 4))
         
         case $op in
-            0) url="$HOST/$db/public/tables" ;;
+            0) url="$HOST/$db/public" ;;
             1) url="$HOST/schemas" ;;
             2) url="$HOST/databases" ;;
-            3) url="$HOST/$db/public/tables?_limit=10" ;;
+            3) url="$HOST/$db/public?_limit=10" ;;
         esac
         
         local start=$(date +%s%N)
@@ -104,7 +104,7 @@ for i in $(seq 1 $WORKERS); do
 done
 
 total_requests=$((total_success + total_failed))
-rps=$(awk "BEGIN {printf \"%.2f\", $total_requests / $total_duration}")
+rps=$(echo "scale=2; $total_requests / $total_duration" | bc)
 
 # Calculate latency percentiles
 if [ -n "$all_latencies" ]; then
@@ -136,7 +136,7 @@ if [ -n "$all_latencies" ]; then
     if [ $total_failed -eq 0 ]; then
         echo "✓ All requests succeeded!"
     else
-        failure_rate=$(awk "BEGIN {printf \"%.2f\", ($total_failed * 100) / $total_requests}")
+        failure_rate=$(echo "scale=2; ($total_failed * 100) / $total_requests" | bc)
         echo "⚠ Failure rate: ${failure_rate}%"
     fi
 fi

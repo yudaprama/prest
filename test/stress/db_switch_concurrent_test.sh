@@ -33,7 +33,7 @@ worker() {
     echo 0 > "$fail_file"
     
     for i in $(seq 1 $ITERATIONS); do
-        response=$(curl -s -w "\n%{http_code}" "$HOST/$db/public/tables" 2>/dev/null || echo "000")
+        response=$(curl -s -w "\n%{http_code}" "$HOST/$db/public" 2>/dev/null || echo "000")
         http_code=$(echo "$response" | tail -n1)
         
         if [ "$http_code" = "200" ]; then
@@ -71,7 +71,7 @@ echo "  Completed: $((total_success + total_failed)) requests"
 echo "  Successful: $total_success"
 echo "  Failed: $total_failed"
 echo "  Duration: ${duration}s"
-echo "  Requests/sec: $(awk "BEGIN {printf \"%.2f\", ($total_success + $total_failed) / $duration}")"
+echo "  Requests/sec: $(echo "scale=2; ($total_success + $total_failed) / $duration" | bc)"
 echo ""
 
 # Test 2: Concurrent requests to different databases
@@ -102,7 +102,7 @@ echo "  Completed: $((total_success + total_failed)) requests"
 echo "  Successful: $total_success"
 echo "  Failed: $total_failed"
 echo "  Duration: ${duration}s"
-echo "  Requests/sec: $(awk "BEGIN {printf \"%.2f\", ($total_success + $total_failed) / $duration}")"
+echo "  Requests/sec: $(echo "scale=2; ($total_success + $total_failed) / $duration" | bc)"
 echo ""
 
 # Test 3: Concurrent mixed operations
@@ -116,7 +116,7 @@ for i in $(seq 1 $CONCURRENT); do
         for j in $(seq 1 $ITERATIONS); do
             op=$((j % 3))
             case $op in
-                0) url="$HOST/$DB1/public/tables" ;;
+                0) url="$HOST/$DB1/public" ;;
                 1) url="$HOST/schemas" ;;
                 2) url="$HOST/databases" ;;
             esac
@@ -152,7 +152,7 @@ echo "  Completed: $((total_success + total_failed)) requests"
 echo "  Successful: $total_success"
 echo "  Failed: $total_failed"
 echo "  Duration: ${duration}s"
-echo "  Requests/sec: $(awk "BEGIN {printf \"%.2f\", ($total_success + $total_failed) / $duration}")"
+echo "  Requests/sec: $(echo "scale=2; ($total_success + $total_failed) / $duration" | bc)"
 echo ""
 
 echo "=== Concurrent Stress Test Complete ==="

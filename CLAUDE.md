@@ -253,4 +253,67 @@ curl -X DELETE "http://localhost:3000/mydb/public/users?id:eq=1"
 
 ---
 
+## 8. Multi-Database Connection Support
+
+pREST supports connecting to multiple PostgreSQL databases simultaneously. Configure additional databases in `prest.toml`:
+
+```toml
+[pg]
+url = "postgresql://user:pass@host:5432/maindb?sslmode=require"
+single = false
+
+[[pg.urls]]
+name = "yarsew"
+url = "postgresql://user:pass@host1:5432/db1?sslmode=require"
+
+[[pg.urls]]
+name = "ogmami"
+url = "postgresql://user:pass@host2:5432/db2?sslmode=require"
+```
+
+### 8.1 Architecture
+
+* **Connection Pool**: `map[string]*sqlx.DB` with mutex protection (`adapters/postgres/internal/connection/conn.go`)
+* **Name Resolution**: Logical name → actual database name mapping via `ResolveDBName()`
+* **Context Propagation**: Database name passed via `pctx.DBNameKey` in request context
+* **Registration**: Named URLs registered at startup in `cmd/prestd/main.go:registerExtraURLs()`
+
+### 8.2 Usage
+
+Query specific database by using its name in the URL path:
+
+```bash
+# Query yarsew database
+curl http://localhost:3000/yarsew/public/users
+
+# Query ogmami database
+curl http://localhost:3000/ogmami/public/orders
+```
+
+### 8.3 Stress Testing
+
+Stress test scripts for multi-database switching are in `test/stress/`:
+
+| Script | Purpose |
+|--------|---------|
+| `db_switch_health_check.sh` | Validate both databases accessible |
+| `db_switch_basic_test.sh` | Sequential DB switching |
+| `db_switch_concurrent_test.sh` | Parallel workers testing pool safety |
+| `db_switch_load_test.sh` | Sustained load with latency metrics |
+| `db_switch_go_test.go` | Go integration tests |
+| `run_all_tests.sh` | Master runner with summary |
+
+```bash
+# Quick validation
+make -C test/stress stress-test-quick
+
+# Full suite
+./test/stress/run_all_tests.sh
+
+# Go tests
+go test -v -short ./test/stress/...
+```
+
+---
+
 *Last updated: derived from source tree at the time of writing.*
