@@ -26,6 +26,11 @@ func registerExtraURLs() {
 		}
 		if _, err := postgres.AddURI(nc.Name, nc.URL); err != nil {
 			slog.Error("register named pg url", "name", nc.Name, "err", err)
+			continue
+		}
+		realName := config.DBNameFromURL(nc.URL)
+		if realName != "" && nc.Name != realName {
+			postgres.SetRealName(nc.Name, realName)
 		}
 	}
 	// Legacy string URLs (pg.urls = [...] format) — derive name from URL
