@@ -316,4 +316,87 @@ go test -v -short ./test/stress/...
 
 ---
 
+## 9. User ID Auto-Filter (Tenant Isolation)
+
+pREST can automatically inject a `WHERE` filter on a configured column using the
+user ID from an HTTP header. This is useful when pREST sits behind an auth
+layer that has already validated the request and forwards the user identity
+(e.g. as `X-User-Id`).
+
+### 9.1 Configuration
+
+Configure per-table in `prest.toml`:
+
+```toml
+[auth]
+user_id_header = "X-User-Id"
+
+[[auth.user_id_filters]]
+database = "yarsew"
+schema   = "public"
+table    = "billing_balances"
+column   = "actor_id"
+
+[[auth.user_id_filters]]
+database = "ogmami"
+schema   = "public"
+table    = "sessions"
+column   = "identity_id"
+```
+
+* `auth.user_id_header` — header to read the user ID from (e.g. `X-User-Id`).
+* `[[auth.user_id_filters]]` — array of per-table rules. `database`,
+  `schema` and `table` must match the URL path; `column` is the column to
+  filter on.
+* Tables not listed in `[[auth.user_id_filters]]` are **never** auto-filtered.
+
+### 9.2 Architecture
+
+* **Middleware**: `middlewares/userfilter.go` — `UserFilterMiddleware` reads
+  the configured header and stores the value in `r.Context()` under
+  `pctx.UserIDKey`.
+* **Resolver**: `adapters/postgres/userfilter.go` — `resolveUserIDColumn()`
+  parses the URL path (`/{database}/{schema}/{table}`) and looks up the
+  matching `UserFilterConfig`.
+* **Injection**: `adapters/postgres/postgres.go` (in `WhereByRequest`) —
+  prepends `"<column>" = $N` and appends the user ID to the bound args when
+  the context has a user ID and the target table is configured.
+
+### 9.3 Generated SQL
+
+```bash
+# Request
+curl -H "X-User-Id: user-alice" \
+  "http://localhost:3000/yarsew/public/billing_balances?_where=status:eq=active"
+
+# Resulting SQL
+SELECT ... FROM "yarsew"."public"."billing_balances"
+ WHERE "actor_id" = $1 AND "status" = $2
+Args: [user-alice, active]
+```
+
+### 9.4 Behavior
+
+| Request | Header | Table in config? | Result |
+|---|---|---|---|
+| `GET /yarsew/public/billing_balances` | `X-User-Id: x` | yes | `WHERE "actor_id" = $1` |
+| `GET /yarsew/public/conversation_states` | `X-User-Id: x` | no | no injection (safe) |
+| `GET /yarsew/public/orders` | (none) | yes | no injection |
+| `auth.user_id_header` not set | any | — | middleware passes through |
+
+### 9.5 Tests
+
+```bash
+PREST_CONF=/path/to/prest.toml go test -run \
+  "TestUserFilter|TestResolveUserIDColumn|TestWhereByRequest_UserFilter" \
+  ./adapters/postgres/ ./middlewares/
+```
+
+* `middlewares/userfilter_test.go` — header extraction, context propagation,
+  custom header names, negroni integration.
+* `adapters/postgres/userfilter_test.go` — resolver matching, SQL injection,
+  placeholder numbering, `_or` clause compatibility.
+
+---
+
 *Last updated: derived from source tree at the time of writing.*

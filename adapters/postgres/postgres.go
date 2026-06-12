@@ -212,6 +212,16 @@ func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID in
 	orClauses := []string{}
 
 	pid := initialPlaceholderID
+
+	// Auto-inject user_id filter from context if configured
+	if userID, ok := r.Context().Value(pctx.UserIDKey).(string); ok && userID != "" {
+		if column := resolveUserIDColumn(r); column != "" {
+			quoted, _ := ident.Quote(column)
+			whereKey = append(whereKey, fmt.Sprintf(`%s = $%d`, quoted, pid))
+			whereValues = append(whereValues, userID)
+			pid++
+		}
+	}
 	for key, val := range r.URL.Query() {
 		if !strings.HasPrefix(key, "_") {
 			// keep the original key untouched to avoid invalid identifier errors

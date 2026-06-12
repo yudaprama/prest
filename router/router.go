@@ -41,6 +41,7 @@ func GetRouter() *mux.Router {
 	router.PathPrefix("/").Handler(negroni.New(
 		middlewares.AccessControl(),
 		middlewares.ExposureMiddleware(),
+		middlewares.UserFilterMiddleware(),
 		middlewares.CacheMiddleware(&config.PrestConf.Cache),
 		// plugins middleware
 		plugins.MiddlewarePlugin(),

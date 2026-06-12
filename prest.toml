@@ -5,6 +5,33 @@ single = false
 [jwt]
 default = false
 
+[auth]
+user_id_header = "X-User-Id"
+
+[[auth.user_id_filters]]
+database = "yarsew"
+schema = "public"
+table = "billing_balances"
+column = "actor_id"
+
+[[auth.user_id_filters]]
+database = "yarsew"
+schema = "public"
+table = "billing_audit_log"
+column = "actor_id"
+
+[[auth.user_id_filters]]
+database = "ogmami"
+schema = "public"
+table = "sessions"
+column = "identity_id"
+
+[[auth.user_id_filters]]
+database = "ogmami"
+schema = "public"
+table = "identities"
+column = "id"
+
 [[pg.urls]]
 name = "yarsew"
 url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"

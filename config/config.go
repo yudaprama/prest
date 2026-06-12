@@ -69,6 +69,13 @@ type PGURLConfig struct {
 	URL  string `mapstructure:"url"`
 }
 
+type UserFilterConfig struct {
+	Database string `mapstructure:"database"`
+	Schema   string `mapstructure:"schema"`
+	Table    string `mapstructure:"table"`
+	Column   string `mapstructure:"column"`
+}
+
 // Prest basic config
 type Prest struct {
 	AuthEnabled          bool
@@ -79,6 +86,8 @@ type Prest struct {
 	AuthEncrypt          string
 	AuthMetadata         []string
 	AuthType             string
+	UserIDHeader  string
+	UserIDFilters []UserFilterConfig
 	HTTPHost             string // HTTPHost Declare which http address the PREST used
 	HTTPPort             int    // HTTPPort Declare which http port the PREST used
 	HTTPTimeout          int
@@ -577,6 +586,12 @@ func parseAuthConfig(cfg *Prest) {
 	cfg.AuthEncrypt = viper.GetString("auth.encrypt")
 	cfg.AuthMetadata = viper.GetStringSlice("auth.metadata")
 	cfg.AuthType = viper.GetString("auth.type")
+	cfg.UserIDHeader = viper.GetString("auth.user_id_header")
+
+	var userFilters []UserFilterConfig
+	if err := viper.UnmarshalKey("auth.user_id_filters", &userFilters); err == nil {
+		cfg.UserIDFilters = userFilters
+	}
 }
 
 func parseHTTPConfig(cfg *Prest) {
