@@ -76,3 +76,88 @@ current surface is intentionally personal-scope. A follow-up
 lookup in the Kratos middleware) is tracked in
 `/Users/yuda/ai-orchestration/CLAUDE.md` under "LobeHub → pREST
 Migration".
+
+## Views and materialised views
+
+PostgreSQL views are queryable through pREST exactly like base tables
+— the same `/{db}/{schema}/{object}` URL path works. This opens an
+alternative implementation path for the Tier 2 SQL templates:
+
+| Surface | URL | Notes |
+|---------|-----|-------|
+| `GET /lobehub/public/v_sessions_grouped` | view | Single URL, supports `_where`, `_order`, `_page`, `_size`, `_count` natively. No `/_QUERIES/*` indirection. |
+| `GET /lobehub/public/mv_usage_by_day` | materialised view | Heavy aggregate pre-computed on refresh. Trivially fast. |
+
+Views are recommended over SQL templates when the query:
+
+- Has no per-request parameters that the user controls (other than the
+  standard `_where` / `_order` / `_page` pREST params).
+- Doesn't need the `{{ sqlVal "userId" }}` template to be re-evaluated
+  per request (the view can hard-code `WHERE user_id = $1` and read
+  the placeholder through the same `UserIDKey` context plumbing that
+  `WhereByRequest` uses for tables).
+
+To migrate a SQL template to a view:
+
+```sql
+-- In a Drizzle migration or a one-off `psql` apply:
+CREATE OR REPLACE VIEW public.v_sessions_grouped AS
+SELECT
+    s.id, s.slug, s.title, /* … */
+    COALESCE(t.cnt, 0)::int AS topic_count
+FROM   sessions s
+LEFT JOIN session_groups g ON g.id = s.group_id
+LEFT JOIN (
+    SELECT session_id, COUNT(*) AS cnt
+    FROM   topics
+    GROUP  BY session_id
+) t ON t.session_id = s.id;
+-- pREST handles the user_id filter via the existing
+-- [[auth.user_id_filters]] entry; add a row for v_sessions_grouped
+-- pointing at the same column as sessions.
+```
+
+The view approach has two downsides:
+
+1. **No template parameters** — anything that needs `{{ sqlVal "x" }}`
+   (e.g. `?sessionId=…`) still has to be a SQL template.
+2. **Schema migration cost** — views need a Drizzle migration to
+   create; SQL templates are just files on disk.
+
+For LobeHub, the recommended split is:
+
+- **Views**: `v_sessions_grouped`, `v_topics_by_session`,
+  `v_messages_by_topic`, `v_agents_with_stats`,
+  `v_notifications_with_deliveries`.
+- **SQL templates**: `usageAggregateByDay` (still needs `startDate` /
+  `endDate` range parameters from the caller).
+
+## Tenant filter implementation
+
+The `[[auth.user_id_filters]]` block in `prest.toml` is wired through:
+
+- `config.UserFilterConfig` struct (`config/config.go`).
+- `config.UserIDFilters []UserFilterConfig` field, populated by
+  `viper.UnmarshalKey("auth.user_id_filters", …)` in `parseAuthConfig`.
+- `adapters/postgres.ResolveUserIDColumn(r *http.Request) string` and
+  `adapters/postgres.UserIDFromContext(r *http.Request) string` —
+  both exported, so middleware can drive them and so the tests in
+  `tests/lobehub/userfilter_test.go` can target them without
+  importing the package internals.
+- `adapters/postgres.postgres.go::WhereByRequest` calls these and
+  prepends `WHERE <column> = $N` to the query if and only if both the
+  user_id and the column resolution succeed.
+
+The filter is **silently skipped** when:
+
+- The request path doesn't match a `[[auth.user_id_filters]]` entry.
+- The auth middleware did not set `pctx.UserIDKey` on the context
+  (the upstream LobeHub proxy can guard against that — pREST trusts
+  whoever sits in front of it).
+- The user_id is the empty string.
+
+This means a deployment without an auth layer is **not safe** — the
+filter becomes a no-op. The standard deployment has the Kratos
+middleware in front of pREST; for local development, set
+`X-User-ID: <id>` and add a tiny middleware that copies it into
+`pctx.UserIDKey`.
