@@ -1,0 +1,220 @@
+[pg]
+url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"
+single = false
+
+[jwt]
+default = false
+
+[auth]
+# Ory Kratos session validation.
+# When `enabled = true`, every request must carry a valid session cookie
+# (default `ory_kratos_session`). The cookie is validated against
+# `browser_url` and the resulting identity ID is injected as a tenant
+# filter using the rules under `[[auth.user_id_filters]]`.
+#
+# For custom SQL templates under `/_QUERIES/...`, the identity ID is
+# also exposed as the template variable `userId` (see
+# controllers/sql.go::extractContextValues), so templates can write
+# `WHERE user_id = {{ sqlVal "userId" }}` and inherit the same tenant
+# isolation as the generic table endpoints.
+
+[auth.kratos]
+enabled = true
+browser_url = "https://kratos.yarsew.example.com"
+session_cookie = "ory_kratos_session"
+request_timeout = 5
+
+# Public paths bypass Kratos session validation.
+# Path patterns: exact ("/foo/bar") or prefix wildcard ("/foo/*").
+# Methods is optional; when empty, all methods match.
+[[auth.kratos.public_paths]]
+path = "/_health"
+
+# Custom SQL templates: aggregate reads that the BFF (Next.js) calls
+# on behalf of the user. Authenticated as long as Kratos is enabled.
+[[auth.kratos.public_paths]]
+path = "/_QUERIES/lobehub/*"
+methods = ["GET"]
+
+[[auth.kratos.public_paths]]
+path = "/_QUERIES/public/*"
+methods = ["GET"]
+
+# ---------------------------------------------------------------------------
+# Tier 1 — generic table CRUD with auto user_id filtering.
+# Each entry tells pREST to inject `WHERE <column> = <identity_id>` for
+# every read/write against `{database}/{schema}/{table}`. The BFF can
+# keep using its existing tRPC client while it migrates by pointing
+# `fetch(PREST_URL + '/lobehub/public/notifications?...')` instead.
+# ---------------------------------------------------------------------------
+[[auth.user_id_filters]]
+database = "yarsew"
+schema = "public"
+table = "billing_balances"
+column = "actor_id"
+
+[[auth.user_id_filters]]
+database = "yarsew"
+schema = "public"
+table = "billing_audit_log"
+column = "actor_id"
+
+[[auth.user_id_filters]]
+database = "ogmami"
+schema = "public"
+table = "sessions"
+column = "identity_id"
+
+[[auth.user_id_filters]]
+database = "ogmami"
+schema = "public"
+table = "identities"
+column = "id"
+
+# --- LobeHub Tier 1 (lobehub DB) ---------------------------------------------
+# All `users` rows are owned by a Kratos identity; we filter by the
+# canonical `id` column so `users`, `user_settings`, `push_tokens`,
+# `async_tasks`, etc. auto-scope to the caller.
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "users"
+column = "id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_settings"
+column = "id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "push_tokens"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "async_tasks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "api_keys"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "session_groups"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "sessions"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agents"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agents_to_sessions"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "topics"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "messages"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "message_groups"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "documents"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "files"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "knowledge_bases"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "knowledge_base_files"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "generation_topics"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "generation_batches"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "generations"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "tasks"
+column = "created_by_user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "notifications"
+column = "user_id"
+
+# notification_deliveries is filtered via a JOIN to notifications; we
+# need an SQL template for it (see notificationsListWithDeliveries).
+
+[queries]
+location = "etc/queries"
+
+[pg.urls]]
+name = "yarsew"
+url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"
+
+[[pg.urls]]
+name = "ogmami"
+url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.ogmamikstxzqkpitnsiu.supabase.co:5432/postgres?sslmode=require"
+
+[[pg.urls]]
+name = "lobehub"
+url = "postgresql://postgres:CHANGE_ME@db.lobehub.example.com:5432/postgres?sslmode=require"

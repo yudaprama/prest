@@ -24,6 +24,7 @@ func ExecuteScriptQuery(rq *http.Request, queriesPath string, script string) ([]
 	templateData := make(map[string]interface{})
 	extractHeaders(rq, templateData)
 	extractQueryParameters(rq, templateData)
+	extractContextValues(rq, templateData)
 
 	sql, values, err := config.PrestConf.Adapter.ParseScript(sqlPath, templateData)
 	if err != nil {
@@ -70,6 +71,16 @@ func ExecuteFromScripts(w http.ResponseWriter, r *http.Request) {
 	}
 	//nolint
 	w.Write(result)
+}
+
+// extractContextValues copies values from the request context into the
+// template data. This allows SQL templates to reference, for example,
+// `{{ sqlVal "userId" }}` to obtain the authenticated Kratos identity
+// ID that the auth middleware stored under pctx.UserIDKey.
+func extractContextValues(rq *http.Request, templateData map[string]interface{}) {
+	if id, ok := rq.Context().Value(pctx.UserIDKey).(string); ok && id != "" {
+		templateData["userId"] = id
+	}
 }
 
 // extractHeaders gets from the given request the headers and populate the provided templateData accordingly.
