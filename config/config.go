@@ -31,6 +31,25 @@ const (
 
 // TablesConf informations
 
+// UserFilterConfig declares a tenant filter that pREST auto-injects
+// into every read against `{database}/{schema}/{table}`. The
+// `column` is the table column that holds the per-user identifier
+// (typically `user_id`); pREST appends `WHERE <column> = <id>` to
+// the query, where `<id>` is read from the request context key
+// `prest/context.UserIDKey`.
+//
+// The auth middleware is responsible for setting that context value
+// (see the kratos integration for the Ory Kratos example). When no
+// matching entry is found, or when the context value is empty, the
+// filter is silently skipped — callers are expected to enforce
+// authentication upstream.
+type UserFilterConfig struct {
+	Database string `mapstructure:"database"`
+	Schema   string `mapstructure:"schema"`
+	Table    string `mapstructure:"table"`
+	Column   string `mapstructure:"column"`
+}
+
 type TablesConf struct {
 	Name        string   `mapstructure:"name"`
 	Permissions []string `mapstructure:"permissions"`
@@ -115,6 +134,7 @@ type Prest struct {
 	Cache                cache.Config
 	PluginPath           string
 	PluginMiddlewareList []PluginMiddleware
+	UserIDFilters        []UserFilterConfig
 	Logger               *slog.Logger
 }
 
@@ -534,6 +554,11 @@ func parseAuthConfig(cfg *Prest) {
 	cfg.AuthEncrypt = viper.GetString("auth.encrypt")
 	cfg.AuthMetadata = viper.GetStringSlice("auth.metadata")
 	cfg.AuthType = viper.GetString("auth.type")
+
+	var userFilters []UserFilterConfig
+	if err := viper.UnmarshalKey("auth.user_id_filters", &userFilters); err == nil {
+		cfg.UserIDFilters = userFilters
+	}
 }
 
 func parseHTTPConfig(cfg *Prest) {

@@ -212,6 +212,21 @@ func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID in
 	orClauses := []string{}
 
 	pid := initialPlaceholderID
+
+	// Auto-inject user_id tenant filter from the auth context.
+	// Resolves the column via the configured `[[auth.user_id_filters]]`
+	// rules and the identity ID via `prest/context.UserIDKey`.
+	// Skipped when either is empty (no matching rule, or auth
+	// middleware absent).
+	if uid := UserIDFromContext(r); uid != "" {
+		if col := ResolveUserIDColumn(r); col != "" {
+			quoted, _ := ident.Quote(col)
+			whereKey = append(whereKey, fmt.Sprintf(`%s = $%d`, quoted, pid))
+			whereValues = append(whereValues, uid)
+			pid++
+		}
+	}
+
 	for key, val := range r.URL.Query() {
 		if !strings.HasPrefix(key, "_") {
 			// keep the original key untouched to avoid invalid identifier errors
