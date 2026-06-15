@@ -14,7 +14,7 @@ func TestResolveUserIDColumn_NoFilters(t *testing.T) {
 	config.PrestConf.UserIDFilters = nil
 
 	req := httptest.NewRequest("GET", "/yarsew/public/billing_balances", nil)
-	column := resolveUserIDColumn(req)
+	column := ResolveUserIDColumn(req)
 	require.Empty(t, column, "Should return empty when no filters configured")
 }
 
@@ -24,7 +24,7 @@ func TestResolveUserIDColumn_MatchFound(t *testing.T) {
 			{Database: "yarsew", Schema: "public", Table: "billing_balances", Column: "actor_id"},
 		}
 		req := httptest.NewRequest("GET", "/yarsew/public/billing_balances", nil)
-		column := resolveUserIDColumn(req)
+		column := ResolveUserIDColumn(req)
 		require.Equal(t, "actor_id", column)
 	})
 
@@ -34,7 +34,7 @@ func TestResolveUserIDColumn_MatchFound(t *testing.T) {
 			{Database: "ogmami", Schema: "public", Table: "sessions", Column: "identity_id"},
 		}
 		req := httptest.NewRequest("GET", "/ogmami/public/sessions", nil)
-		column := resolveUserIDColumn(req)
+		column := ResolveUserIDColumn(req)
 		require.Equal(t, "identity_id", column)
 	})
 
@@ -43,7 +43,7 @@ func TestResolveUserIDColumn_MatchFound(t *testing.T) {
 			{Database: "yarsew", Schema: "public", Table: "billing_balances", Column: "actor_id"},
 		}
 		req := httptest.NewRequest("GET", "/yarsew/public/conversation_states", nil)
-		column := resolveUserIDColumn(req)
+		column := ResolveUserIDColumn(req)
 		require.Empty(t, column, "Should return empty for non-configured table")
 	})
 
@@ -52,7 +52,7 @@ func TestResolveUserIDColumn_MatchFound(t *testing.T) {
 			{Database: "yarsew", Schema: "public", Table: "billing_balances", Column: "actor_id"},
 		}
 		req := httptest.NewRequest("GET", "/yarsew/private/billing_balances", nil)
-		column := resolveUserIDColumn(req)
+		column := ResolveUserIDColumn(req)
 		require.Empty(t, column, "Schema must match exactly")
 	})
 }
@@ -64,25 +64,25 @@ func TestResolveUserIDColumn_PathFormats(t *testing.T) {
 
 	t.Run("path with query parameters", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/yarsew/public/billing_balances?status=pending&page=1", nil)
-		column := resolveUserIDColumn(req)
+		column := ResolveUserIDColumn(req)
 		require.Equal(t, "actor_id", column)
 	})
 
 	t.Run("path with fewer segments", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/databases", nil)
-		column := resolveUserIDColumn(req)
+		column := ResolveUserIDColumn(req)
 		require.Empty(t, column)
 	})
 
 	t.Run("root path", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
-		column := resolveUserIDColumn(req)
+		column := ResolveUserIDColumn(req)
 		require.Empty(t, column)
 	})
 
 	t.Run("health endpoint", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/_health", nil)
-		column := resolveUserIDColumn(req)
+		column := ResolveUserIDColumn(req)
 		require.Empty(t, column)
 	})
 }

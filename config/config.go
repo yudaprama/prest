@@ -31,6 +31,25 @@ const (
 
 // TablesConf informations
 
+// UserFilterConfig declares a tenant filter that pREST auto-injects
+// into every read against `{database}/{schema}/{table}`. The
+// `column` is the table column that holds the per-user identifier
+// (typically `user_id`); pREST appends `WHERE <column> = <id>` to
+// the query, where `<id>` is read from the request context key
+// `prest/context.UserIDKey`.
+//
+// The auth middleware is responsible for setting that context value
+// (see the kratos integration for the Ory Kratos example). When no
+// matching entry is found, or when the context value is empty, the
+// filter is silently skipped — callers are expected to enforce
+// authentication upstream.
+type UserFilterConfig struct {
+	Database string `mapstructure:"database"`
+	Schema   string `mapstructure:"schema"`
+	Table    string `mapstructure:"table"`
+	Column   string `mapstructure:"column"`
+}
+
 type TablesConf struct {
 	Name        string   `mapstructure:"name"`
 	Permissions []string `mapstructure:"permissions"`
@@ -69,13 +88,6 @@ type PGURLConfig struct {
 	URL  string `mapstructure:"url"`
 }
 
-type UserFilterConfig struct {
-	Database string `mapstructure:"database"`
-	Schema   string `mapstructure:"schema"`
-	Table    string `mapstructure:"table"`
-	Column   string `mapstructure:"column"`
-}
-
 // Prest basic config
 type Prest struct {
 	AuthEnabled          bool
@@ -86,8 +98,8 @@ type Prest struct {
 	AuthEncrypt          string
 	AuthMetadata         []string
 	AuthType             string
-	UserIDHeader  string
-	UserIDFilters []UserFilterConfig
+	UserIDHeader         string
+	UserIDFilters        []UserFilterConfig
 	HTTPHost             string // HTTPHost Declare which http address the PREST used
 	HTTPPort             int    // HTTPPort Declare which http port the PREST used
 	HTTPTimeout          int
