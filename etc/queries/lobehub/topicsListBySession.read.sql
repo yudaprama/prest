@@ -1,3 +1,18 @@
+-- topicsListBySession
+-- Replaces: routers/lambda/topic.ts: queryTopics
+--
+-- Auth scope:   userId      (auto-injected from Kratos identity)
+--               workspaceId (optional query param — if set, scope to workspace;
+--                            else personal scope with workspace_id IS NULL)
+--
+-- Query params:
+--   sessionId  (string, required) — scope to one session
+--   favorite   (bool,   default false)
+--   status     (string, optional)
+--   keyword    (string, optional) — fuzzy title/content match (also searches
+--                                    messages.content within the topic)
+--   page       (int,    default 1)
+--   size       (int,    default 20)
 SELECT
     t.id,
     t.title,
@@ -30,7 +45,11 @@ LEFT JOIN LATERAL (
     ORDER  BY created_at DESC
     LIMIT  1
 ) lm ON true
-WHERE  t.user_id    = {{ sqlVal "userId" }}
+{{- if isSet "workspaceId" }}
+WHERE  t.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else }}
+WHERE  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
+{{- end }}
   AND  t.session_id = {{ sqlVal "sessionId" }}
 {{- if eq (defaultOrValue "favorite" "false") "true" }}
   AND  t.favorite   = true
