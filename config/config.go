@@ -82,6 +82,12 @@ type PluginMiddleware struct {
 	Func string
 }
 
+// PGURLConfig holds a named database URL for multi-connection setups.
+type PGURLConfig struct {
+	Name string `mapstructure:"name"`
+	URL  string `mapstructure:"url"`
+}
+
 // Prest basic config
 type Prest struct {
 	AuthEnabled          bool
@@ -92,6 +98,8 @@ type Prest struct {
 	AuthEncrypt          string
 	AuthMetadata         []string
 	AuthType             string
+	UserIDHeader         string
+	UserIDFilters        []UserFilterConfig
 	HTTPHost             string // HTTPHost Declare which http address the PREST used
 	HTTPPort             int    // HTTPPort Declare which http port the PREST used
 	HTTPTimeout          int
@@ -101,6 +109,8 @@ type Prest struct {
 	PGPass               string
 	PGDatabase           string
 	PGURL                string
+	PGURLs               []string
+	PGNamedURLs          []PGURLConfig
 	PGSSLMode            string
 	PGSSLCert            string
 	PGSSLKey             string
@@ -134,7 +144,6 @@ type Prest struct {
 	Cache                cache.Config
 	PluginPath           string
 	PluginMiddlewareList []PluginMiddleware
-	UserIDFilters        []UserFilterConfig
 	Logger               *slog.Logger
 }
 
@@ -528,6 +537,41 @@ func parseDBConfig(cfg *Prest) {
 	cfg.PGConnTimeout = viper.GetInt("pg.conntimeout")
 	cfg.PGCache = viper.GetBool("pg.cache")
 	cfg.SingleDB = viper.GetBool("pg.single")
+
+	// Parse pg.urls: try named format ([[pg.urls]] with name+url) first,
+	// fall back to plain string array for backward compatibility.
+	var namedURLs []PGURLConfig
+	if err := viper.UnmarshalKey("pg.urls", &namedURLs); err == nil {
+		for i := range namedURLs {
+			if namedURLs[i].URL != "" && namedURLs[i].Name == "" {
+				namedURLs[i].Name = DBNameFromURL(namedURLs[i].URL)
+			}
+		}
+	}
+	if hasNamedURLs(namedURLs) {
+		cfg.PGNamedURLs = namedURLs
+	} else {
+		cfg.PGURLs = viper.GetStringSlice("pg.urls")
+	}
+}
+
+func hasNamedURLs(urls []PGURLConfig) bool {
+	for _, u := range urls {
+		if u.URL != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// DBNameFromURL extracts the database name from a PostgreSQL connection URL.
+func DBNameFromURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	name := strings.TrimPrefix(u.Path, "/")
+	return name
 }
 
 func loadCacheConfig(cfg *Prest) {
@@ -554,6 +598,7 @@ func parseAuthConfig(cfg *Prest) {
 	cfg.AuthEncrypt = viper.GetString("auth.encrypt")
 	cfg.AuthMetadata = viper.GetStringSlice("auth.metadata")
 	cfg.AuthType = viper.GetString("auth.type")
+	cfg.UserIDHeader = viper.GetString("auth.user_id_header")
 
 	var userFilters []UserFilterConfig
 	if err := viper.UnmarshalKey("auth.user_id_filters", &userFilters); err == nil {

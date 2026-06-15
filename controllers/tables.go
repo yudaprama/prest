@@ -11,7 +11,6 @@ import (
 	"github.com/prest/prest/v2/adapters"
 	"github.com/prest/prest/v2/config"
 	pctx "github.com/prest/prest/v2/context"
-	"github.com/prest/prest/v2/controllers/auth"
 	"github.com/prest/prest/v2/internal/ident"
 	"github.com/structy/log"
 
@@ -150,17 +149,8 @@ func SelectFromTables(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user info from token
-	userInfo := r.Context().Value(pctx.UserInfoKey)
-	var userName string
-	if userInfo != nil {
-		if user, ok := userInfo.(auth.User); ok {
-			userName = user.Username
-		}
-	}
-
 	// get selected columns, "*" if empty "_columns"
-	cols, err := config.PrestConf.Adapter.FieldsPermissions(r, table, "read", userName)
+	cols, err := config.PrestConf.Adapter.FieldsPermissions(r, table, "read", "")
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return

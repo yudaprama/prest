@@ -26,6 +26,22 @@ func AddDatabaseToPool(name string) (*sqlx.DB, error) {
 	return connection.AddDatabaseToPool(name)
 }
 
+// SetRealName maps a logical/alias name to the actual database name that
+// the connection is bound to. Required when a connection's pool name does
+// not match the underlying PostgreSQL database name, so the SQL builder
+// qualifies identifiers correctly.
+func SetRealName(logical, actual string) {
+	connection.SetRealName(logical, actual)
+}
+
+// AddURI registers a database connection built from a raw DSN and stores
+// it in the pool keyed by the DSN itself. This exposes connection.AddURI
+// so that packages outside adapters (e.g. cmd/prestd) can register
+// multiple independently-configured connection strings at startup.
+func AddURI(name, dsn string) (*sqlx.DB, error) {
+	return connection.AddURI(name, dsn)
+}
+
 // MustGet get postgres connection
 func MustGet() *sqlx.DB {
 	return connection.MustGet()
