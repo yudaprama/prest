@@ -1,3 +1,18 @@
+-- agentsListWithStats
+-- Replaces: routers/lambda/agent.ts: queryAgents
+--
+-- Auth scope:   userId      (auto-injected from Kratos identity)
+--               workspaceId (optional query param — if set, scope to workspace;
+--                            else personal scope with workspace_id IS NULL)
+--
+-- Query params:
+--   sessionGroupId  (string, optional) — filter by session group
+--   pinnedOnly      (bool,   default false)
+--   keyword         (string, optional) — fuzzy match against title/description
+--   tagList         (string, optional) — comma-separated tags; agent must
+--                                        include all of them (jsonb @>)
+--   page            (int,    default 1)
+--   size            (int,    default 20)
 SELECT
     a.id,
     a.slug,
@@ -28,10 +43,18 @@ LEFT JOIN (
         COUNT(*)                  AS topic_count,
         MAX(updated_at)           AS last_active_at
     FROM   topics
-    WHERE  user_id = {{ sqlVal "userId" }}
+    {{- if isSet "workspaceId" }}
+    WHERE  workspace_id = {{ sqlVal "workspaceId" }}
+    {{- else }}
+    WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+    {{- end }}
     GROUP  BY agent_id
 ) t ON t.agent_id = a.id
-WHERE  a.user_id = {{ sqlVal "userId" }}
+{{- if isSet "workspaceId" }}
+WHERE  a.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else }}
+WHERE  a.user_id = {{ sqlVal "userId" }} AND a.workspace_id IS NULL
+{{- end }}
 {{- if isSet "sessionGroupId" }}
   AND  a.session_group_id = {{ sqlVal "sessionGroupId" }}
 {{- end }}

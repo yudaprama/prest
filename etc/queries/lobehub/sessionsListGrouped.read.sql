@@ -1,3 +1,17 @@
+-- sessionsListGrouped
+-- Replaces: routers/lambda/session.ts: getGroupedSessions
+--
+-- Auth scope:   userId      (auto-injected from Kratos identity)
+--              workspaceId (optional query param — if set, scope to workspace;
+--                           else personal scope with workspace_id IS NULL)
+--
+-- Query params:
+--   includePinnedOnly (bool, default false) — filter to pinned sessions only
+--   page              (int, default 1)
+--   size              (int, default 20)
+--
+-- Returns: array of sessions with joined group columns and per-session
+--          topic counts.
 SELECT
     s.id,
     s.slug,
@@ -18,13 +32,26 @@ SELECT
 FROM   sessions s
 LEFT JOIN session_groups g
        ON g.id = s.group_id
+{{- if isSet "workspaceId" }}
+      AND g.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else }}
+      AND g.workspace_id IS NULL
+{{- end }}
 LEFT JOIN (
     SELECT session_id, COUNT(*) AS cnt
     FROM   topics
-    WHERE  user_id = {{ sqlVal "userId" }}
+    {{- if isSet "workspaceId" }}
+    WHERE  workspace_id = {{ sqlVal "workspaceId" }}
+    {{- else }}
+    WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+    {{- end }}
     GROUP  BY session_id
 ) t ON t.session_id = s.id
-WHERE  s.user_id = {{ sqlVal "userId" }}
+{{- if isSet "workspaceId" }}
+WHERE  s.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else }}
+WHERE  s.user_id = {{ sqlVal "userId" }} AND s.workspace_id IS NULL
+{{- end }}
 {{- if eq (defaultOrValue "includePinnedOnly" "false") "true" }}
   AND  s.pinned = true
 {{- end }}

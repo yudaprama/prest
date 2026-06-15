@@ -12,7 +12,14 @@ with pREST HTTP endpoints.
 | `GET`    | `/_QUERIES/lobehub/agentsListWithStats`            | `agent.queryAgents`                  | 2 |
 | `GET`    | `/_QUERIES/lobehub/usageAggregateByDay`            | `usage.findByDateRange`              | 2 |
 | `GET`    | `/_QUERIES/lobehub/notificationsListWithDeliveries` | `notification.list`                | 2 |
-| `*`      | `/lobehub/public/{table}`                          | (most flat user-scoped reads)        | 1 |
+| `GET`   | `/_QUERIES/lobehub/threadMessages`                 | `thread.getThreads`                   | 2 |
+| `GET`   | `/_QUERIES/lobehub/agentFilesByAgent`              | `agentDocument.listDocuments`        | 2 |
+| `GET`   | `/_QUERIES/lobehub/connectorToolsByConnector`      | `connector.list` (tools sublist)      | 2 |
+| `GET`   | `/_QUERIES/lobehub/verifyResultsWithRubric`        | `verify.listResults`                  | 2 |
+| `GET`   | `/_QUERIES/lobehub/generationBatchesWithGenerations`| `generationBatch.getGenerationBatches`| 2 |
+| `GET`   | `/_QUERIES/lobehub/knowledgeBaseFilesWithChunks`   | `file.getKnowledgeItems`             | 2 |
+| `GET`   | `/_QUERIES/lobehub/agentSkillsWithResources`       | `agentSkills.list` / `listResources` | 2 |
+| `*`     | `/lobehub/public/{table}`                          | (most flat user-scoped reads)        | 1 |
 
 All endpoints require a valid `ory_kratos_session` cookie (the
 [auth.kratos] block in `cmd/prestd/prest.toml` validates it). The
@@ -84,3 +91,23 @@ column. For workspace-shared reads, the SQL templates here are
 intentionally narrow (personal-scope `user_id` filter). Adding a
 `[[auth.workspace_id_filters]]` block (or a per-request workspace
 membership lookup) is a follow-up.
+
+## Template convention — workspace branching
+
+All `.read.sql` that target a `workspace_id`-bearing table accept an
+optional `workspaceId` query parameter. When present, the WHERE clause
+scopes to that workspace (dropping the `userId` check, matching
+LobeHub's `buildWorkspaceWhere`). When absent, the WHERE clause checks
+both `user_id = $userId AND workspace_id IS NULL` (personal scope).
+
+```sql
+{{- if isSet "workspaceId" }}
+WHERE  workspace_id = {{ sqlVal "workspaceId" }}
+{{- else }}
+WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+{{- end }}
+```
+
+Tables that are personal-only (`notifications`, `user_memories` and
+their sub-tables) use only `user_id = {{ sqlVal "userId" }}` — no
+workspace branching needed.
