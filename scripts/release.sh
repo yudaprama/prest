@@ -2,20 +2,20 @@
 # scripts/release.sh — one-shot pREST release.
 #
 # Usage:
-#   ./scripts/release.sh 2.0.1          # explicit version
-#   ./scripts/release.sh                # auto-bump patch (2.0.0 → 2.0.1)
-#   ./scripts/release.sh --dry-run 2.0.1
-#   ./scripts/release.sh --no-push 2.0.1
+#   ./scripts/release.sh                # auto-bump patch (2.0.1 → 2.0.2)
+#   ./scripts/release.sh 2.1.0          # explicit version
+#   ./scripts/release.sh --dry-run      # show what would happen, change nothing
+#   ./scripts/release.sh --no-push      # commit + tag locally, don't push
 #
 # What it does:
 #   1. Sanity check (clean tree, on main, helpers.PrestVersionNumber parses)
 #   2. Update helpers/prest.go with the new version
-#   3. go test ./config/... and go build ./cmd/prestd/
+#   3. go test + go build (rollback on failure)
 #   4. git commit + tag
-#   5. git push (unless --no-push)
+#   5. git push (unless --no-push) → triggers CI → GitHub Release + Docker
 #
-# Tag collisions (e.g. the v2.0.0 we inherited from upstream) are handled
-# by `git tag -f` — the caller has already accepted that this is a fork.
+# Safety: if any step fails, the script reverts helpers/prest.go so the
+# working tree is left clean. No half-done state.
 set -euo pipefail
 
 DRY_RUN=0
@@ -27,7 +27,7 @@ for arg in "$@"; do
     --dry-run)  DRY_RUN=1 ;;
     --no-push)  NO_PUSH=1 ;;
     -h|--help)
-      sed -n '2,18p' "$0"
+      sed -n '2,17p' "$0"
       exit 0
       ;;
     [0-9]*.[0-9]*.[0-9]*)
@@ -40,6 +40,17 @@ done
 
 cd "$(git rev-parse --show-toplevel)"
 
+# trap: if anything fails AFTER we modify helpers/prest.go, revert it.
+# This prevents the "file modified but not committed" bug.
+CLEANUP_NEEDED=0
+cleanup() {
+  if [[ "$CLEANUP_NEEDED" -eq 1 ]]; then
+    echo "→ reverting helpers/prest.go (release failed mid-way)" >&2
+    git checkout helpers/prest.go 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
 # --- sanity ----------------------------------------------------------------
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "✗ working tree not clean. Commit or stash first." >&2
@@ -49,7 +60,7 @@ fi
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$BRANCH" != "main" ]]; then
-  echo "✗ not on main (currently on $BRANCH). Switch first." >&2
+  echo "✗ not on main (currently on $BRANCH)." >&2
   exit 1
 fi
 
@@ -61,7 +72,6 @@ if [[ -z "$CURRENT" ]]; then
 fi
 
 if [[ -z "$VERSION" ]]; then
-  # bump patch: 2.0.0 → 2.0.1
   IFS='.' read -r MAJOR MINOR PATCH <<< "${CURRENT%%-*}"
   PATCH=$((PATCH + 1))
   VERSION="$MAJOR.$MINOR.$PATCH"
@@ -69,45 +79,54 @@ fi
 
 echo "→ release: $CURRENT → $VERSION"
 
-# --- apply ----------------------------------------------------------------
+# --- dry-run ---------------------------------------------------------------
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  echo "(dry-run: would update helpers/prest.go to $VERSION)"
-else
-  sed -i.bak "s/PrestVersionNumber = \"$CURRENT\"/PrestVersionNumber = \"$VERSION\"/" helpers/prest.go
-  rm -f helpers/prest.go.bak
-
-  echo "→ go test ./config/... ./controllers/... ./template/..."
-  go test -count=1 -run "TestParseDBConfig|Test_pgURLEnvKey|TestLoad|TestParse|TestDatabaseURL|TestHTTPPort|Test_Auth|Test_getPrestConfFile|Test_portFromEnv|TestValidateJWTConfig|Test_fetchJWKS|TestExposeDataConfig|Test_parseDatabaseURL" ./config/
-  go test -count=1 -run TestExtractContextValues ./controllers/
-  go test -count=1 ./template/
-
-  echo "→ go build ./cmd/prestd/"
-  go build -o /tmp/prestd-release-smoke ./cmd/prestd/
-  BUILT_VERSION=$(/tmp/prestd-release-smoke version 2>/dev/null | awk '{print $NF}')
-  if [[ "$BUILT_VERSION" != "$VERSION" ]]; then
-    echo "✗ built binary reports '$BUILT_VERSION', expected '$VERSION'" >&2
-    exit 1
-  fi
-  rm -f /tmp/prestd-release-smoke
-
-  echo "→ git commit + tag v$VERSION"
-  git add helpers/prest.go
-  git commit -m "chore: bump to $VERSION"
-  git tag -f "v$VERSION"
+  echo "(dry-run: would update helpers/prest.go, test, build, commit, tag, push)"
+  exit 0
 fi
 
-# --- push -----------------------------------------------------------------
+# --- apply + test + build --------------------------------------------------
+echo "→ update helpers/prest.go"
+sed -i.bak "s/PrestVersionNumber = \"$CURRENT\"/PrestVersionNumber = \"$VERSION\"/" helpers/prest.go
+rm -f helpers/prest.go.bak
+CLEANUP_NEEDED=1   # from here on, failure → revert
+
+echo "→ go test"
+go test -count=1 -run "TestParseDBConfig|Test_pgURLEnvKey|TestLoad|TestDatabaseURL|TestHTTPPort|Test_Auth|Test_getPrestConfFile|Test_portFromEnv|TestValidateJWTConfig|Test_fetchJWKS|TestExposeDataConfig|Test_parseDatabaseURL" ./config/
+go test -count=1 -run TestExtractContextValues ./controllers/
+go test -count=1 ./template/
+
+echo "→ go build"
+go build -o /tmp/prestd-release-smoke ./cmd/prestd/
+BUILT_VERSION=$(/tmp/prestd-release-smoke version 2>/dev/null | awk '{print $NF}')
+rm -f /tmp/prestd-release-smoke
+if [[ "$BUILT_VERSION" != "$VERSION" ]]; then
+  echo "✗ built binary reports '$BUILT_VERSION', expected '$VERSION'" >&2
+  exit 1
+fi
+
+# --- commit + tag ----------------------------------------------------------
+echo "→ git commit + tag v$VERSION"
+git add helpers/prest.go
+git commit -m "chore: bump to $VERSION"
+git tag -f "v$VERSION"
+CLEANUP_NEEDED=0   # committed — no more cleanup
+
+# --- push ------------------------------------------------------------------
 if [[ "$NO_PUSH" -eq 1 ]]; then
-  echo "→ --no-push: skipping push"
+  echo "→ --no-push: done locally (not pushed)"
   exit 0
 fi
 
 echo "→ git push origin main v$VERSION"
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  echo "(dry-run: would push)"
-  exit 0
-fi
 git push origin main
 git push origin "v$VERSION" --force
 
-echo "✓ released v$VERSION — watch CI at https://github.com/$(git remote get-url origin | sed 's|.*github.com/||;s|\.git$||')/actions"
+REPO=$(git remote get-url origin | sed 's|.*github.com/||;s|\.git$||')
+echo ""
+echo "✓ released v$VERSION"
+echo "  CI:        https://github.com/$REPO/actions"
+echo "  Releases:  https://github.com/$REPO/releases/tag/v$VERSION"
+echo ""
+echo "  Watch CI finish:"
+echo "    gh run watch --repo $REPO --exit-status"
