@@ -19,6 +19,8 @@ with pREST HTTP endpoints.
 | `GET`   | `/_QUERIES/lobehub/generationBatchesWithGenerations`| `generationBatch.getGenerationBatches`| 2 |
 | `GET`   | `/_QUERIES/lobehub/knowledgeBaseFilesWithChunks`   | `file.getKnowledgeItems`             | 2 |
 | `GET`   | `/_QUERIES/lobehub/agentSkillsWithResources`       | `agentSkills.list` / `listResources` | 2 |
+| `GET`   | `/_QUERIES/lobehub/messagesSearchFts`              | `message.searchMessages` (FTS, replaces BM25) | 2 |
+| `GET`   | `/_QUERIES/lobehub/topicsSearchFts`                | `topic.searchTopics` (FTS, replaces BM25)     | 2 |
 | `*`     | `/lobehub/public/{table}`                          | (most flat user-scoped reads)        | 1 |
 
 All endpoints require a valid `ory_kratos_session` cookie (the
@@ -111,3 +113,47 @@ WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
 Tables that are personal-only (`notifications`, `user_memories` and
 their sub-tables) use only `user_id = {{ sqlVal "userId" }}` — no
 workspace branching needed.
+
+## Full-text search (FTS)
+
+Supabase-hosted lobehub DB does not have the ParadeDB `pg_search`
+extension. Migration `0111_add_postgres_fts.sql` (in the lobehub fork)
+adds Postgres built-in FTS instead: a STORED generated `*_tsv` column
+per searchable table + a GIN index. Search goes through two paths:
+
+### Tier 1 — `$tsquery` filter (no ranking)
+
+pREST's adapter natively supports the `tsquery` filter operator
+(`adapters/postgres/postgres.go`):
+
+```http
+# All rows where content matches the english tsquery
+GET /lobehub/public/messages?content$tsquery=hello+world
+
+# With explicit config
+GET /lobehub/public/messages?content$tsquery(english)=deploy
+```
+
+Returns rows in table order (no relevance ranking). Use when the caller
+just needs "does this row match?".
+
+### Tier 2 — relevance-ranked templates
+
+Use when the caller needs "give me the top-N most relevant rows".
+These templates expose `ts_rank()` as a `rank` field and sort
+descending:
+
+- `GET /_QUERIES/lobehub/messagesSearchFts?q=...&size=20`
+  (against `messages_tsv`)
+- `GET /_QUERIES/lobehub/topicsSearchFts?q=...&size=20`
+  (against `topics_tsv`)
+
+Both accept the workspace branching pattern documented above, plus an
+optional `topicId` / `sessionId` / `agentId` filter. See
+`messagesSearchFts.read.sql` and `topicsSearchFts.read.sql` for the
+full query-param list.
+
+**Why a CTE for `plainto_tsquery`:** computing it once with
+`WITH q AS (SELECT plainto_tsquery(...) AS tsq)` lets us reuse the
+same `q.tsq` for both the `@@` predicate and the `ts_rank()` scoring
+without a double bind.

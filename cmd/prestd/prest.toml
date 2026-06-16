@@ -205,6 +205,74 @@ schema = "public"
 table = "notifications"
 column = "user_id"
 
+# --- LobeHub Tier 1 expansion (threads + message sub-tables) -----------------
+# All four tables carry a non-null `user_id` column referencing users.id
+# (see packages/database/src/schemas/{topic,message}.ts). They mirror the
+# `messages`/`topics`/`message_groups` pattern already shipped above.
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "threads"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "message_plugins"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "message_translates"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "message_tts"
+column = "user_id"
+
+# --- LobeHub Tier 1 expansion (agent/chat-group sub-tables + AI infra) -------
+# 6 more tables, all with non-null `user_id` referencing users.id. Added
+# Jun 16 2026 (25 → 31 tables). `chat_groups_agents` is a junction that
+# also carries user_id for tenant safety.
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agents_files"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agents_knowledge_bases"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "chat_groups"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "chat_groups_agents"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "ai_models"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "ai_providers"
+column = "user_id"
+
 # notification_deliveries is filtered via a JOIN to notifications; we
 # need an SQL template for it (see notificationsListWithDeliveries).
 

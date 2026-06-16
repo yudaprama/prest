@@ -9,7 +9,7 @@ This fork adds LobeHub server-side CRUD/query endpoints to pRESTd, with multi-te
 | `context/keys.go::UserIDKey` | Context key carrying the authenticated Kratos identity ID through the middleware chain. |
 | `controllers/sql.go::extractContextValues` | Copies `pctx.UserIDKey` into template data as the `userId` variable so SQL templates can use `{{ sqlVal "userId" }}`. |
 | `controllers/sql_userid_test.go` | Tests for the helper above. |
-| `cmd/prestd/prest.toml` | Kratos auth enabled + `[[auth.user_id_filters]]` per LobeHub table. URLs are blank; resolved at runtime from env. |
+| `cmd/prestd/prest.toml` | Kratos auth enabled + `[[auth.user_id_filters]]` per LobeHub table (31 entries as of Jun 16 2026). URLs are blank; resolved at runtime from env. |
 | `config/config.go::loadDotEnv` | Calls `godotenv.Load()` before viper. `.env` in CWD is auto-loaded (absent file = silent no-op). |
 | `config/config.go::parseDBConfig` | Overrides each `[[pg.urls]]` URL from `PREST_PG_URL_<NAME>` env var; legacy array form uses `PREST_PG_URL_<N>`. |
 | `etc/queries/lobehub/*.read.sql` | Tier 2 SQL templates (joined/aggregate reads). |
@@ -45,6 +45,33 @@ A Supabase password was previously committed in cleartext. **Rotate it at the pr
 | `/_health`, `/_QUERIES/public/*` | Public paths — bypass Kratos, no filter. |
 
 Filter is **silently skipped** when no matching `[[auth.user_id_filters]]` entry exists, when `pctx.UserIDKey` is empty on the request, or when the user_id is empty. This means a deployment without an auth layer is **not safe** — the filter becomes a no-op. Standard deployment has Kratos in front of pREST.
+
+### Registered LobeHub Tier 1 tables (31)
+
+All `database = "lobehub"`, `schema = "public"`. The 31 registered tables
+(filter column in parentheses; default `user_id` unless noted):
+
+```
+users (id), user_settings (id),
+push_tokens, async_tasks, api_keys, session_groups, sessions, agents,
+agents_to_sessions, agents_files, agents_knowledge_bases,
+topics, messages, message_groups, message_plugins, message_translates,
+message_tts, threads,
+chat_groups, chat_groups_agents,
+documents, files, knowledge_bases, knowledge_base_files,
+generation_topics, generation_batches, generations,
+tasks (created_by_user_id), notifications,
+ai_models, ai_providers
+```
+
+`tasks` filters on `created_by_user_id` (not the default `user_id`); every
+other entry uses `user_id`. Two batches added Jun 16 2026:
+
+- **Batch 1 (21→25):** `threads`, `message_plugins`, `message_translates`,
+  `message_tts` (all mirror the `messages` pattern with non-null `user_id`
+  referencing `users.id`).
+- **Batch 2 (25→31):** `agents_files`, `agents_knowledge_bases`,
+  `chat_groups`, `chat_groups_agents` (junction), `ai_models`, `ai_providers`.
 
 ## Workspace scope — open item
 
