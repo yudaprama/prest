@@ -44,3 +44,8 @@ docbuild/
 .clj-kondo
 *debug*
 /prest
+
+# Local secrets — never commit your .env
+.env
+.env.local
+.env.*.local

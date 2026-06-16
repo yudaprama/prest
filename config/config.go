@@ -19,6 +19,7 @@ import (
 
 	"log/slog"
 
+	"github.com/joho/godotenv"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
@@ -156,8 +157,22 @@ var (
 	defaultCfgFile = "./prest.toml"
 )
 
+// loadDotEnv populates os.Environ from a .env file in the current working
+// directory. It is a no-op (and silent) when the file is absent, so
+// production deployments that inject secrets via the orchestrator keep
+// working unchanged. Variables already set in the environment take
+// precedence — the .env file only fills in the gaps.
+func loadDotEnv() {
+	if err := godotenv.Load(); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			slog.Debug("could not load .env", "err", err)
+		}
+	}
+}
+
 // Load configuration
 func Load() {
+	loadDotEnv()
 	viperCfg()
 	PrestConf = &Prest{}
 	Parse(PrestConf)
@@ -546,13 +561,38 @@ func parseDBConfig(cfg *Prest) {
 			if namedURLs[i].URL != "" && namedURLs[i].Name == "" {
 				namedURLs[i].Name = DBNameFromURL(namedURLs[i].URL)
 			}
+			// Allow PREST_PG_URL_<NAME> to override the URL inline.
+			// Use this for keeping credentials out of prest.toml: leave
+			// the URL blank in the file and supply it via env / .env.
+			if v := os.Getenv("PREST_PG_URL_" + pgURLEnvKey(namedURLs[i].Name)); v != "" {
+				namedURLs[i].URL = v
+				if namedURLs[i].Name == "" {
+					namedURLs[i].Name = DBNameFromURL(v)
+				}
+			}
 		}
 	}
 	if hasNamedURLs(namedURLs) {
 		cfg.PGNamedURLs = namedURLs
 	} else {
-		cfg.PGURLs = viper.GetStringSlice("pg.urls")
+		// Legacy string array: also honour PREST_PG_URL_<N> for each entry.
+		urls := viper.GetStringSlice("pg.urls")
+		for i := range urls {
+			if v := os.Getenv("PREST_PG_URL_" + strconv.Itoa(i)); v != "" {
+				urls[i] = v
+			}
+		}
+		cfg.PGURLs = urls
 	}
+}
+
+// pgURLEnvKey normalises a pg.urls entry name into an env-var-friendly
+// suffix: uppercase, with dashes and spaces replaced by underscores.
+// An empty name yields an empty suffix, which produces "PREST_PG_URL_"
+// — the caller can still set it but the lookup is order-dependent.
+func pgURLEnvKey(name string) string {
+	r := strings.NewReplacer("-", "_", " ", "_", ".", "_")
+	return strings.ToUpper(r.Replace(name))
 }
 
 func hasNamedURLs(urls []PGURLConfig) bool {

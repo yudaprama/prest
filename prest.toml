@@ -1,5 +1,8 @@
 [pg]
-url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"
+# Connection URL for the default database. Set `DATABASE_URL` (or
+# `PREST_PG_URL`) in the environment / .env to inject credentials
+# without committing them to this file.
+url = ""
 single = false
 
 [jwt]
@@ -32,10 +35,14 @@ schema = "public"
 table = "identities"
 column = "id"
 
+# Named extra connections. Each entry's `url` is overridden by the
+# `PREST_PG_URL_<NAME>` environment variable when set (see .env.example).
+# Leaving the URL blank here is the recommended way to keep secrets
+# out of source control.
 [[pg.urls]]
 name = "yarsew"
-url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"
+url = ""
 
 [[pg.urls]]
 name = "ogmami"
-url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.ogmamikstxzqkpitnsiu.supabase.co:5432/postgres?sslmode=require"
+url = ""

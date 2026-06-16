@@ -1,5 +1,9 @@
 [pg]
-url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"
+# Credentials are injected at runtime via env vars (.env in dev,
+# orchestrator secrets in prod) — see .env.example.
+#   DATABASE_URL                     overrides [pg].url
+#   PREST_PG_URL_<NAME>              overrides each [[pg.urls]] entry by name
+url = ""
 single = false
 
 [jwt]
@@ -209,12 +213,15 @@ location = "etc/queries"
 
 [pg.urls]]
 name = "yarsew"
-url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.yarsewjdagdkjkfilyzb.supabase.co:5432/postgres?sslmode=require"
+# See header comment at [pg]: real URL comes from PREST_PG_URL_YARSEW.
+url = ""
 
 [[pg.urls]]
 name = "ogmami"
-url = "postgresql://postgres:Ap96DPd6EK1vPf26u5jE@db.ogmamikstxzqkpitnsiu.supabase.co:5432/postgres?sslmode=require"
+# See header comment at [pg]: real URL comes from PREST_PG_URL_OGMAMI.
+url = ""
 
 [[pg.urls]]
 name = "lobehub"
-url = "postgresql://postgres:CHANGE_ME@db.lobehub.example.com:5432/postgres?sslmode=require"
+# See header comment at [pg]: real URL comes from PREST_PG_URL_LOBEHUB.
+url = ""

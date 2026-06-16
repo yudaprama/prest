@@ -27,6 +27,7 @@ require (
 require (
 	github.com/go-sql-driver/mysql v1.10.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 )
 
 require (

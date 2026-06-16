@@ -12,7 +12,7 @@ preserving multi-tenant isolation via Kratos session auth.
 | `context/keys.go::UserIDKey` | Context key that carries the authenticated Kratos identity ID through the middleware chain. |
 | `controllers/sql.go::extractContextValues` | Copies `pctx.UserIDKey` into the template data as the `userId` variable so SQL templates can use `{{ sqlVal "userId" }}`. |
 | `controllers/sql_userid_test.go` | Unit tests for the helper above. |
-| `cmd/prestd/prest.toml` | Embedded configuration with Kratos auth **enabled** and a new `[[auth.user_id_filters]]` block per LobeHub table. Force-added over the upstream `.gitignore`. |
+| `cmd/prestd/prest.toml` | Configuration template with Kratos auth **enabled** and a new `[[auth.user_id_filters]]` block per LobeHub table. Credentials are intentionally left as `CHANGE_ME` placeholders and resolved at runtime from environment variables (see `.env.example`). |
 | `etc/queries/README.md` | Top-level docs for custom SQL templates. |
 | `etc/queries/lobehub/*.read.sql` | Tier 2 SQL templates replacing the joined/aggregate LobeHub routers. |
 | `etc/queries/lobehub/README.md` | Per-subdirectory API reference. |
@@ -43,16 +43,48 @@ go build ./cmd/prestd/
 PORT=3000 ./prestd
 ```
 
-The `//go:embed prest.toml` in `cmd/prestd/main.go` bakes
-`cmd/prestd/prest.toml` into the binary, so no runtime config file is
-needed. To update Tier 1 entries, edit `cmd/prestd/prest.toml` and
-rebuild.
+At runtime pREST reads `prest.toml` from disk (path resolved via
+`PREST_CONF` or the current working directory). There is no
+`//go:embed prest.toml` in `cmd/prestd/main.go` — the file is plain
+on-disk config. To update Tier 1 entries, edit `cmd/prestd/prest.toml`
+or override via env vars (see below).
+
+### Secret management
+
+Database URLs must not be committed. Three override paths exist, in
+order of precedence:
+
+1. `DATABASE_URL` / `PREST_PG_URL` — overrides `[pg].url` (the
+   primary connection). Already supported upstream.
+2. `PREST_PG_URL_<NAME>` — overrides each `[[pg.urls]]` entry by its
+   `name` (uppercase; dashes/dots/spaces become underscores). E.g.
+   `PREST_PG_URL_YARSEW`, `PREST_PG_URL_OGMAMI`,
+   `PREST_PG_URL_LOBEHUB`.
+3. `PREST_PG_URL_<N>` — overrides legacy string-array `pg.urls[i]`
+   entries by zero-based index.
+
+`config.Load()` also calls `godotenv.Load()` before viper, so a `.env`
+file in the working directory is auto-loaded when present. Variables
+already set in the actual environment take precedence over the file.
+Copy `.env.example` to `.env` and fill in real credentials — `.env`
+is in `.gitignore`.
+
+If an entry's URL is left blank in `prest.toml`, pREST will pick up
+the env var at parse time. If both are blank, registration of that
+connection is silently skipped (see `cmd/prestd/main.go::registerExtraURLs`)
+and requests against that database return an error.
+
+Rotation note: a Supabase password was previously committed
+in cleartext in `prest.toml` / `cmd/prestd/prest.toml`. **Rotate
+the credential at the provider** regardless of the sanitisation
+in the current commit.
 
 ## Testing
 
 ```bash
 go test -run TestExtractContextValues ./controllers/...
 go test -v ./template/...
+go test -run "TestParseDBConfig|Test_pgURLEnvKey" -v ./config/
 ```
 
 The rest of the controllers tests require a live PostgreSQL (see
