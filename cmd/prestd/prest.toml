@@ -302,6 +302,280 @@ column = "user_id"
 # notification_deliveries is filtered via a JOIN to notifications; we
 # need an SQL template for it (see notificationsListWithDeliveries).
 
+# --- LobeHub Phase 5: bulk expansion (all remaining user_id-bearing tables) ---
+# 39 more tables identified from packages/database/src/schemas/. All carry
+# a non-null `user_id` (or `created_by_user_id`/`installed_by_user_id`) FK to
+# `users.id` with CASCADE DELETE. Added 2026-06-18.
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_operations"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_bot_providers"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_cron_jobs"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_skills"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_documents"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_eval_benchmarks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_eval_experiments"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_eval_experiment_benchmarks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_eval_datasets"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_eval_test_cases"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_eval_runs"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "agent_eval_run_topics"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "document_shares"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "files_to_sessions"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "file_chunks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "chunks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "unstructured_chunks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "embeddings"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "document_chunks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_connectors"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_connector_tools"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_memories"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_memories_contexts"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_memories_preferences"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_memories_activities"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_memories_identities"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_memories_experiences"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_persona_documents"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_persona_document_histories"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "messenger_account_links"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "messenger_installations"
+column = "installed_by_user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "rag_eval_datasets"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "rag_eval_dataset_records"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "rag_eval_evaluation"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "rag_eval_evaluation_records"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "verify_criteria"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "verify_rubrics"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "verify_rubric_criteria"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "verify_check_results"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "llm_generation_tracing"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "task_dependencies"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "task_documents"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "task_topics"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "briefs"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "task_comments"
+column = "user_id"
+
 [queries]
 location = "etc/queries"
 
