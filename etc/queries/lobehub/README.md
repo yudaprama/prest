@@ -21,6 +21,7 @@ with pREST HTTP endpoints.
 | `GET`   | `/_QUERIES/lobehub/agentSkillsWithResources`       | `agentSkills.list` / `listResources` | 2 |
 | `GET`   | `/_QUERIES/lobehub/messagesSearchFts`              | `message.searchMessages` (FTS, replaces BM25) | 2 |
 | `GET`   | `/_QUERIES/lobehub/topicsSearchFts`                | `topic.searchTopics` (FTS, replaces BM25)     | 2 |
+| `GET`   | `/_QUERIES/lobehub/documentsWithHistory`           | `document.listDocumentHistory`                 | 2 |
 | `*`     | `/lobehub/public/{table}`                          | (most flat user-scoped reads)        | 1 |
 
 All endpoints require a valid `ory_kratos_session` cookie (the

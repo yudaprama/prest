@@ -205,6 +205,32 @@ schema = "public"
 table = "notifications"
 column = "user_id"
 
+# --- LobeHub Tier 1 expansion (devices, plugins, history, junctions) ---------
+# All tables carry a non-null `user_id` referencing users.id.
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "devices"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "document_histories"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "topic_documents"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "user_installed_plugins"
+column = "user_id"
+
 # --- LobeHub Tier 1 expansion (threads + message sub-tables) -----------------
 # All four tables carry a non-null `user_id` column referencing users.id
 # (see packages/database/src/schemas/{topic,message}.ts). They mirror the
