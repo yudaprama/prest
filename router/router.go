@@ -43,6 +43,8 @@ func GetRouter() *mux.Router {
 		middlewares.AccessControl(),
 		middlewares.ExposureMiddleware(),
 		middlewares.UserFilterMiddleware(),
+		middlewares.WorkspaceAuthzGate(),
+		middlewares.WorkspaceMembershipResolver(),
 		middlewares.CacheMiddleware(&config.PrestConf.Cache),
 		// plugins middleware
 		plugins.MiddlewarePlugin(),

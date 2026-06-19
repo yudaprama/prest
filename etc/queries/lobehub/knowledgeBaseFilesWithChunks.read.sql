@@ -6,9 +6,11 @@
 -- status derived from the file's chunk_task_id and embedding_task_id
 -- async_tasks rows.
 --
--- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+-- Auth scope:   userId       (auto-injected from Kratos identity)
+--               workspaceId  (optional query param — if set, scope to workspace)
+--               workspaceScope (optional "all" — cross-workspace mode;
+--                               resolved via Keto membership; else personal
+--                               scope with workspace_id IS NULL)
 --
 -- Query params:
 --   knowledgeBaseId (string, optional) — filter to one KB; if omitted,
@@ -48,6 +50,8 @@ LEFT JOIN (
     JOIN   chunks c ON c.id = fc.chunk_id
     {{- if isSet "workspaceId" }}
     WHERE  fc.workspace_id = {{ sqlVal "workspaceId" }}
+    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+    WHERE  {{ workspaceScopeIn "fc.workspace_id" }}
     {{- else }}
     WHERE  fc.workspace_id IS NULL
     {{- end }}
@@ -56,6 +60,9 @@ LEFT JOIN (
 {{- if isSet "workspaceId" }}
 WHERE  kbf.workspace_id = {{ sqlVal "workspaceId" }}
   AND  f.workspace_id   = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+WHERE  {{ workspaceScopeIn "kbf.workspace_id" }}
+  AND  {{ workspaceScopeIn "f.workspace_id" }}
 {{- else }}
 WHERE  kbf.user_id = {{ sqlVal "userId" }} AND kbf.workspace_id IS NULL
   AND  f.user_id   = {{ sqlVal "userId" }} AND f.workspace_id   IS NULL

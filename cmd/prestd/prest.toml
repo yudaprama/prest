@@ -10,7 +10,17 @@ single = false
 default = false
 
 [keto]
+# Ory Keto authorization endpoints (v0.12 relation-tuples API).
+# Phase 1 (WorkspaceAuthzGate) and Phase 2 (WorkspaceMembershipResolver)
+# both consume these. `enabled = false` keeps both middlewares as
+# pass-throughs, matching pre-Phase-1 behavior. See
+# WORKSPACE_SCOPE_IMPLEMENTATION_PLAN.md for rollout.
+#
+# In production, set `enabled = true` and point both URLs at the Keto
+# service (defaults match `infra/keto/docker-compose.yml`).
 readurl = "http://localhost:4466"
+writeurl = "http://localhost:4467"
+enabled = false
 
 [auth]
 # Ory Kratos session validation.
@@ -604,6 +614,40 @@ database = "lobehub"
 schema = "public"
 table = "topic_shares"
 column = "user_id"
+
+# ---------------------------------------------------------------------------
+# Tier 1 (Phase 2) — workspace tables auto-scoped by membership.
+# Each entry tells pREST to inject `WHERE <column> IN (<user_workspace_list>)`
+# for every read/write against `{database}/{schema}/{table}`. The list is
+# resolved once per request by WorkspaceMembershipResolver (Keto ListObjects,
+# cached 30s).
+#
+# Gated by `auth.workspace_filters_enabled = false` (default) — Phase 1 only.
+# Flip per-environment after Phase 1 has been stable in prod for 1 week.
+# ---------------------------------------------------------------------------
+[[auth.workspace_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "workspaces"
+column = "id"
+
+[[auth.workspace_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "workspace_members"
+column = "workspace_id"
+
+[[auth.workspace_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "workspace_invitations"
+column = "workspace_id"
+
+[[auth.workspace_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "workspace_audit_logs"
+column = "workspace_id"
 
 [queries]
 location = "etc/queries"

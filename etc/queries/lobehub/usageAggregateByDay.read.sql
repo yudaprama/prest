@@ -6,9 +6,11 @@
 -- (Yarsew DB) populated by the LLM path. Use this template as a quick local
 -- read; for billing, hit Plano directly.
 --
--- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+-- Auth scope:   userId       (auto-injected from Kratos identity)
+--               workspaceId  (optional query param — if set, scope to workspace)
+--               workspaceScope (optional "all" — cross-workspace mode,
+--                               resolved via Keto membership; else personal
+--                               scope with workspace_id IS NULL)
 --
 -- Query params:
 --   startDate (timestamp, required)
@@ -30,6 +32,8 @@ SELECT
 FROM   messages m
 {{- if isSet "workspaceId" }}
 WHERE  m.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+WHERE  {{ workspaceScopeIn "m.workspace_id" }}
 {{- else }}
 WHERE  m.user_id = {{ sqlVal "userId" }} AND m.workspace_id IS NULL
 {{- end }}

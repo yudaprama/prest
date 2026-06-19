@@ -1,9 +1,11 @@
 -- threadMessages
 -- Replaces: routers/lambda/thread.ts: getThreads
 --
--- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+-- Auth scope:   userId       (auto-injected from Kratos identity)
+--               workspaceId  (optional query param — if set, scope to workspace)
+--               workspaceScope (optional "all" — cross-workspace mode;
+--                               resolved via Keto membership; else personal
+--                               scope with workspace_id IS NULL)
 --
 -- Query params:
 --   topicId (string, required)
@@ -34,11 +36,15 @@ LEFT JOIN messages m
        ON m.thread_id = t.id
        {{- if isSet "workspaceId" }}
        AND m.workspace_id = {{ sqlVal "workspaceId" }}
+       {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+       AND {{ workspaceScopeIn "m.workspace_id" }}
        {{- else }}
        AND m.workspace_id IS NULL
        {{- end }}
 {{- if isSet "workspaceId" }}
 WHERE  t.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+WHERE  {{ workspaceScopeIn "t.workspace_id" }}
 {{- else }}
 WHERE  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
 {{- end }}

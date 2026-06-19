@@ -7,9 +7,11 @@
 -- to verify_criteria is needed for the read path. The criterion source link
 -- lives inside agent_operations.verify_plan (JSON), not as a FK column.
 --
--- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+-- Auth scope:   userId       (auto-injected from Kratos identity)
+--               workspaceId  (optional query param — if set, scope to workspace)
+--               workspaceScope (optional "all" — cross-workspace mode;
+--                               resolved via Keto membership; else personal
+--                               scope with workspace_id IS NULL)
 --
 -- Query params:
 --   operationId (string, required)
@@ -44,6 +46,8 @@ SELECT
 FROM   verify_check_results
 {{- if isSet "workspaceId" }}
 WHERE  workspace_id = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+WHERE  {{ workspaceScopeIn "workspace_id" }}
 {{- else }}
 WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
 {{- end }}

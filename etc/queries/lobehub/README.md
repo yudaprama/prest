@@ -89,30 +89,53 @@ curl -s \
   | jq
 ```
 
-## Workspace scope (TODO)
+## Workspace scope
 
 The LobeHub tables also have a `workspace_id` column for shared
-workspaces. pREST's current `user_id_filters` only handles a single
-column. For workspace-shared reads, the SQL templates here are
-intentionally narrow (personal-scope `user_id` filter). Adding a
-`[[auth.workspace_id_filters]]` block (or a per-request workspace
-membership lookup) is a follow-up.
+workspaces. Tier 1 of pREST (`[[auth.user_id_filters]]`) scopes by
+`user_id` only. For workspace-shared reads, two additional mechanisms
+are wired up:
 
-## Template convention — workspace branching
+- `[[auth.workspace_id_filters]]` — same shape as
+  `[[auth.user_id_filters]]`, but injects `WHERE <column> IN (<list>)`
+  with the list coming from the `WorkspaceIDsKey` request context,
+  resolved once per request by `WorkspaceMembershipResolver` via Ory
+  Keto (v0.12 `ListObjects`). Currently scoped to the four workspace
+  tables: `workspaces`, `workspace_members`, `workspace_invitations`,
+  `workspace_audit_logs`. Activation is gated by
+  `[auth] workspace_filters_enabled = false` (Phase 2 default).
 
-All `.read.sql` that target a `workspace_id`-bearing table accept an
-optional `workspaceId` query parameter. When present, the WHERE clause
-scopes to that workspace (dropping the `userId` check, matching
-LobeHub's `buildWorkspaceWhere`). When absent, the WHERE clause checks
-both `user_id = $userId AND workspace_id IS NULL` (personal scope).
+- SQL template helpers `workspaceId` (single workspace) and
+  `workspaceScopeIn` (cross-workspace IN-clause) — set automatically
+  by `controllers/sql.go::extractContextValues` from the request
+  context.
+
+## Template convention — three-branch workspace scope
+
+All `.read.sql` that target a `workspace_id`-bearing table accept two
+optional query parameters:
+
+| Query param       | When set                                                                                                                   | Template branch                              |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------|
+| `workspaceId=X`   | single workspace, server-authorized via Keto `Check` (`view` permission) by `WorkspaceAuthzGate` (Phase 1, behind `[keto] enabled = true`) | `WHERE <col> = {{ sqlVal "workspaceId" }}`   |
+| `workspaceScope=all` | cross-workspace mode, list auto-resolved via Keto `ListObjects` (Phase 2, behind `[auth] workspace_filters_enabled = true`) | `WHERE {{ workspaceScopeIn "<col>" }}`       |
+| (neither)         | personal scope                                                                                                              | `WHERE user_id = {{ sqlVal "userId" }} AND <col> IS NULL` |
+
+Single workspace takes precedence over cross-workspace mode.
 
 ```sql
 {{- if isSet "workspaceId" }}
 WHERE  workspace_id = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+WHERE  {{ workspaceScopeIn "workspace_id" }}
 {{- else }}
 WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
 {{- end }}
 ```
+
+The `workspaceScopeIn` helper quotes the column via `internal/ident`
+(rejecting arbitrary expressions) and emits `FALSE` when the caller has
+zero workspaces — fail-closed for workspace tables.
 
 Tables that are personal-only (`notifications`, `user_memories` and
 their sub-tables) use only `user_id = {{ sqlVal "userId" }}` — no

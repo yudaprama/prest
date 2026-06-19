@@ -1,9 +1,11 @@
 -- sessionsListGrouped
 -- Replaces: routers/lambda/session.ts: getGroupedSessions
 --
--- Auth scope:   userId      (auto-injected from Kratos identity)
---              workspaceId (optional query param — if set, scope to workspace;
---                           else personal scope with workspace_id IS NULL)
+-- Auth scope:   userId       (auto-injected from Kratos identity)
+--               workspaceId  (optional query param — if set, scope to workspace)
+--               workspaceScope (optional "all" — cross-workspace mode,
+--                               resolved via Keto membership; else personal
+--                               scope with workspace_id IS NULL)
 --
 -- Query params:
 --   includePinnedOnly (bool, default false) — filter to pinned sessions only
@@ -34,6 +36,8 @@ LEFT JOIN session_groups g
        ON g.id = s.group_id
 {{- if isSet "workspaceId" }}
       AND g.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+      AND {{ workspaceScopeIn "g.workspace_id" }}
 {{- else }}
       AND g.workspace_id IS NULL
 {{- end }}
@@ -42,6 +46,8 @@ LEFT JOIN (
     FROM   topics
     {{- if isSet "workspaceId" }}
     WHERE  workspace_id = {{ sqlVal "workspaceId" }}
+    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+    WHERE  {{ workspaceScopeIn "workspace_id" }}
     {{- else }}
     WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
     {{- end }}
@@ -49,6 +55,8 @@ LEFT JOIN (
 ) t ON t.session_id = s.id
 {{- if isSet "workspaceId" }}
 WHERE  s.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+WHERE  {{ workspaceScopeIn "s.workspace_id" }}
 {{- else }}
 WHERE  s.user_id = {{ sqlVal "userId" }} AND s.workspace_id IS NULL
 {{- end }}

@@ -7,9 +7,11 @@
 -- cursor pagination via beforeSavedAt/beforeId, and an optional includeCurrent
 -- flag to include the document's current editorData as the first entry.
 --
--- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+-- Auth scope:   userId       (auto-injected from Kratos identity)
+--               workspaceId  (optional query param — if set, scope to workspace)
+--               workspaceScope (optional "all" — cross-workspace mode;
+--                               resolved via Keto membership; else personal
+--                               scope with workspace_id IS NULL)
 --
 -- Query params:
 --   documentId     (string, required) — document to list history for
@@ -35,6 +37,8 @@ WITH history AS (
     WHERE  dh.document_id = {{ sqlVal "documentId" }}
 {{- if isSet "workspaceId" }}
       AND dh.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+      AND {{ workspaceScopeIn "dh.workspace_id" }}
 {{- else }}
       AND dh.user_id = {{ sqlVal "userId" }} AND dh.workspace_id IS NULL
 {{- end }}

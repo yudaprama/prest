@@ -16,6 +16,13 @@ import (
 	"github.com/prest/prest/v2/template"
 )
 
+// scope constants for testTemplateData.
+const (
+	scopePersonal        = "personal"
+	scopeSingleWorkspace = "single_workspace"
+	scopeCrossWorkspace  = "cross_workspace"
+)
+
 // TestLobehubTemplatesParse validates every `.read.sql` under
 // prest/etc/queries/lobehub through the same Go text/template engine
 // that ParseScript uses, without requiring a live Postgres connection.
@@ -30,10 +37,13 @@ func TestLobehubTemplatesParse(t *testing.T) {
 	for _, name := range scripts {
 		name := name
 		t.Run("personal/"+name, func(t *testing.T) {
-			executeLobehubScript(t, name, testTemplateData(false))
+			executeLobehubScript(t, name, testTemplateData(scopePersonal))
 		})
 		t.Run("workspace/"+name, func(t *testing.T) {
-			executeLobehubScript(t, name, testTemplateData(true))
+			executeLobehubScript(t, name, testTemplateData(scopeSingleWorkspace))
+		})
+		t.Run("cross-workspace/"+name, func(t *testing.T) {
+			executeLobehubScript(t, name, testTemplateData(scopeCrossWorkspace))
 		})
 	}
 }
@@ -126,13 +136,13 @@ func TestLobehubWorkspaceBranching(t *testing.T) {
 	for name := range workspaceScripts {
 		name := name
 		t.Run(name+"_personal_has_workspace_null", func(t *testing.T) {
-			sql := renderScript(t, name, false)
+			sql := renderScript(t, name, scopePersonal)
 			if !strings.Contains(sql, "workspace_id IS NULL") {
 				t.Errorf("personal-mode SQL missing 'workspace_id IS NULL' clause\nSQL:\n%s", sql)
 			}
 		})
 		t.Run(name+"_workspace_does_not_branch_to_null", func(t *testing.T) {
-			sql := renderScript(t, name, true)
+			sql := renderScript(t, name, scopeSingleWorkspace)
 			// The workspace-mode branch should produce `workspace_id = $N`, not
 			// `workspace_id IS NULL` (which is the personal-mode branch).
 			// The join `AND g.workspace_id = $N` style is the workspace branch.
@@ -151,8 +161,8 @@ func TestLobehubWorkspaceBranching(t *testing.T) {
 	for name := range personalOnly {
 		name := name
 		t.Run(name+"_no_workspace_branching", func(t *testing.T) {
-			personalSQL := renderScript(t, name, false)
-			workspaceSQL := renderScript(t, name, true)
+			personalSQL := renderScript(t, name, scopePersonal)
+			workspaceSQL := renderScript(t, name, scopeSingleWorkspace)
 			// Personal-only template does not branch on workspaceId
 			if strings.Contains(personalSQL, "workspace_id IS NULL") {
 				t.Errorf("personal-only template unexpectedly contains 'workspace_id IS NULL'\nSQL:\n%s", personalSQL)
@@ -164,12 +174,12 @@ func TestLobehubWorkspaceBranching(t *testing.T) {
 	}
 }
 
-func renderScript(t *testing.T, name string, workspace bool) string {
+func renderScript(t *testing.T, name string, scope string) string {
 	t.Helper()
 	queriesDir := resolveQueriesDir(t)
 	scriptPath := filepath.Join(queriesDir, name)
 
-	data := testTemplateData(workspace)
+	data := testTemplateData(scope)
 	funcRegistry := &template.FuncRegistry{TemplateData: data}
 	tpl := gotemplate.New(name).Funcs(funcRegistry.RegistryAllFuncs())
 	tpl, err := tpl.ParseFiles(scriptPath)
@@ -184,8 +194,15 @@ func renderScript(t *testing.T, name string, workspace bool) string {
 }
 
 // testTemplateData returns representative values for every parameter any
-// lobehub script references. When workspace=true, workspaceId is included.
-func testTemplateData(workspace bool) map[string]interface{} {
+// lobehub script references. `scope` selects which branch of the
+// workspace_id / workspaceScope / workspaceIds template helpers to
+// exercise:
+//
+//   - scopePersonal:        user_id filter only
+//   - scopeSingleWorkspace: ?workspaceId=X path (single workspace)
+//   - scopeCrossWorkspace:  ?workspaceScope=all path (cross-workspace
+//                           membership via the workspaceScopeIn helper)
+func testTemplateData(scope string) map[string]interface{} {
 	data := map[string]interface{}{
 		"userId":          "00000000-0000-0000-0000-000000000001",
 		"sessionId":       "sess-1",
@@ -217,8 +234,14 @@ func testTemplateData(workspace bool) map[string]interface{} {
 		"page":            "1",
 		"size":            "20",
 	}
-	if workspace {
+	switch scope {
+	case scopeSingleWorkspace:
 		data["workspaceId"] = "00000000-0000-0000-0000-00000000aabb"
+	case scopeCrossWorkspace:
+		// defaultOrValue reads this and falls back to "all".
+		data["workspaceScope"] = "all"
+		// workspaceScopeIn reads this for the IN-clause.
+		data["workspaceIds"] = []string{"ws-a", "ws-b", "ws-c"}
 	}
 	return data
 }

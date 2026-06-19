@@ -47,6 +47,8 @@ LEFT JOIN LATERAL (
 ) lm ON true
 {{- if isSet "workspaceId" }}
 WHERE  t.workspace_id = {{ sqlVal "workspaceId" }}
+{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+WHERE  {{ workspaceScopeIn "t.workspace_id" }}
 {{- else }}
 WHERE  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
 {{- end }}

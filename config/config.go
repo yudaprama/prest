@@ -51,6 +51,18 @@ type UserFilterConfig struct {
 	Column   string `mapstructure:"column"`
 }
 
+// WorkspaceFilterConfig declares a tenant filter for workspace tables.
+// pREST auto-injects `WHERE <column> IN (<user_workspace_list>)` for
+// every read/write against the configured table. The list comes from
+// the request context under `prest/context.WorkspaceIDsKey`, which is
+// populated by the WorkspaceMembershipResolver middleware.
+type WorkspaceFilterConfig struct {
+	Database string `mapstructure:"database"`
+	Schema   string `mapstructure:"schema"`
+	Table    string `mapstructure:"table"`
+	Column   string `mapstructure:"column"`
+}
+
 type TablesConf struct {
 	Name        string   `mapstructure:"name"`
 	Permissions []string `mapstructure:"permissions"`
@@ -100,8 +112,9 @@ type Prest struct {
 	AuthMetadata         []string
 	AuthType             string
 	UserIDHeader         string
-	UserIDFilters        []UserFilterConfig
-	HTTPHost             string // HTTPHost Declare which http address the PREST used
+	UserIDFilters         []UserFilterConfig
+	WorkspaceIDFilters    []WorkspaceFilterConfig
+	HTTPHost              string // HTTPHost Declare which http address the PREST used
 	HTTPPort             int    // HTTPPort Declare which http port the PREST used
 	HTTPTimeout          int
 	PGHost               string
@@ -147,7 +160,14 @@ type Prest struct {
 	PluginMiddlewareList []PluginMiddleware
 	Logger               *slog.Logger
 	// KetoReadURL is the Ory Keto Read API endpoint (default http://localhost:4466).
-	KetoReadURL string
+	KetoReadURL  string
+	KetoWriteURL string
+	KetoEnabled  bool
+	// WorkspaceFiltersEnabled controls whether the workspace membership
+	// resolver and IN-clause filters are active. Default false (Phase 1
+	// only). When true, the four workspace tables are auto-scoped by
+	// WorkspaceIDsKey.
+	WorkspaceFiltersEnabled bool
 }
 
 const defaultCacheDir = "./"
@@ -277,6 +297,9 @@ func viperCfg() {
 	viper.SetDefault("pluginpath", "./lib")
 	viper.SetDefault("pluginmiddlewarelist", []PluginMiddleware{})
 	viper.SetDefault("keto.readurl", "http://localhost:4466")
+	viper.SetDefault("keto.writeurl", "http://localhost:4467")
+	viper.SetDefault("keto.enabled", false)
+	viper.SetDefault("auth.workspace_filters_enabled", false)
 	viper.SetDefault("expose.enabled", false)
 	viper.SetDefault("expose.tables", true)
 	viper.SetDefault("expose.schemas", true)
@@ -370,6 +393,8 @@ func Parse(cfg *Prest) {
 	}
 	cfg.PluginMiddlewareList = pluginMiddlewareConfig
 	cfg.KetoReadURL = viper.GetString("keto.readurl")
+	cfg.KetoWriteURL = viper.GetString("keto.writeurl")
+	cfg.KetoEnabled = viper.GetBool("keto.enabled")
 }
 
 // parseDatabaseURL tries to get from URL the DB configs
@@ -648,6 +673,12 @@ func parseAuthConfig(cfg *Prest) {
 	if err := viper.UnmarshalKey("auth.user_id_filters", &userFilters); err == nil {
 		cfg.UserIDFilters = userFilters
 	}
+
+	var workspaceFilters []WorkspaceFilterConfig
+	if err := viper.UnmarshalKey("auth.workspace_id_filters", &workspaceFilters); err == nil {
+		cfg.WorkspaceIDFilters = workspaceFilters
+	}
+	cfg.WorkspaceFiltersEnabled = viper.GetBool("auth.workspace_filters_enabled")
 }
 
 func parseHTTPConfig(cfg *Prest) {

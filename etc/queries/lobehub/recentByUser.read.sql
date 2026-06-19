@@ -1,9 +1,11 @@
 -- recentByUser
 -- Replaces: routers/lambda/recent.ts: queryRecent
 --
--- Auth scope:   userId      (auto-injected from Kratos identity)
---              workspaceId (optional query param — if set, scope to workspace;
---                           else personal scope with workspace_id IS NULL)
+-- Auth scope:   userId       (auto-injected from Kratos identity)
+--               workspaceId  (optional query param — if set, scope to workspace)
+--               workspaceScope (optional "all" — cross-workspace mode,
+--                               resolved via Keto membership; else personal
+--                               scope with workspace_id IS NULL)
 --
 -- Query params:
 --   limit  (int, default 10) — max rows to return
@@ -32,6 +34,8 @@ WITH latest_topic_message AS (
     FROM   messages m
     {{- if isSet "workspaceId" }}
     WHERE  m.workspace_id = {{ sqlVal "workspaceId" }}
+    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+    WHERE  {{ workspaceScopeIn "m.workspace_id" }}
     {{- else }}
     WHERE  m.user_id = {{ sqlVal "userId" }} AND m.workspace_id IS NULL
     {{- end }}
@@ -52,6 +56,8 @@ topic_arm AS (
     LEFT JOIN latest_topic_message ltm ON ltm.topic_id = t.id
     {{- if isSet "workspaceId" }}
     WHERE  t.workspace_id = {{ sqlVal "workspaceId" }}
+    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+    WHERE  {{ workspaceScopeIn "t.workspace_id" }}
     {{- else }}
     WHERE  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
     {{- end }}
@@ -75,6 +81,8 @@ document_arm AS (
     FROM   documents d
     {{- if isSet "workspaceId" }}
     WHERE  d.workspace_id = {{ sqlVal "workspaceId" }}
+    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+    WHERE  {{ workspaceScopeIn "d.workspace_id" }}
     {{- else }}
     WHERE  d.user_id = {{ sqlVal "userId" }} AND d.workspace_id IS NULL
     {{- end }}
@@ -95,6 +103,8 @@ task_arm AS (
     FROM   tasks tk
     {{- if isSet "workspaceId" }}
     WHERE  tk.workspace_id = {{ sqlVal "workspaceId" }}
+    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
+    WHERE  {{ workspaceScopeIn "tk.workspace_id" }}
     {{- else }}
     WHERE  tk.created_by_user_id = {{ sqlVal "userId" }} AND tk.workspace_id IS NULL
     {{- end }}

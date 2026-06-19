@@ -227,6 +227,36 @@ func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID in
 		}
 	}
 
+	// Auto-inject workspace_id IN-clause for the four workspace tables
+	// (Phase 2). Uses the caller's resolved membership from Keto
+	// (cached 30s in WorkspaceMembershipResolver).
+	//
+	// Behavior matrix:
+	//   - wsIDs == nil:    resolver has not run (gate disabled,
+	//                      anonymous request) → no clause emitted,
+	//                      matching pre-Phase-2 behavior.
+	//   - wsIDs == []:     resolver ran and found zero workspaces →
+	//                      emit `FALSE` (fail-closed for workspace
+	//                      tables — caller can read nothing).
+	//   - wsIDs == [...]:  emit `col IN ($1, $2, …)` with N binds.
+	if wsIDs := WorkspaceIDsFromContext(r); wsIDs != nil {
+		if col := ResolveWorkspaceIDColumn(r); col != "" {
+			quoted, _ := ident.Quote(col)
+			if len(wsIDs) == 0 {
+				// Fail-closed: caller is in zero workspaces.
+				whereKey = append(whereKey, "FALSE")
+			} else {
+				ph := make([]string, len(wsIDs))
+				for i, w := range wsIDs {
+					whereValues = append(whereValues, w)
+					ph[i] = fmt.Sprintf("$%d", pid)
+					pid++
+				}
+				whereKey = append(whereKey, fmt.Sprintf(`%s IN (%s)`, quoted, strings.Join(ph, ",")))
+			}
+		}
+	}
+
 	for key, val := range r.URL.Query() {
 		if !strings.HasPrefix(key, "_") {
 			// keep the original key untouched to avoid invalid identifier errors

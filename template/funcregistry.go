@@ -30,6 +30,12 @@ func (fr *FuncRegistry) RegistryAllFuncs() (funcs template.FuncMap) {
 		"sqlVal":  fr.sqlVal,
 		"sqlList": fr.sqlList,
 		"ident":   fr.ident,
+		// workspaceScopeIn emits `col IN ($1, $2, …)` for the caller's
+		// resolved workspace membership (workspaceIds template var).
+		// Returns `FALSE` when no memberships are resolved, so
+		// cross-workspace reads return nothing for users with no
+		// workspaces. The `col` argument is quoted via internal/ident.
+		"workspaceScopeIn": fr.workspaceScopeIn,
 	}
 	return
 }
@@ -120,4 +126,39 @@ func (fr *FuncRegistry) sqlList(key string) string {
 func (fr *FuncRegistry) ident(key string) (string, error) {
 	s, _ := fr.TemplateData[key].(string)
 	return ident.Quote(s)
+}
+
+// workspaceScopeIn emits `<quoted col> IN ($1, $2, …)` for the
+// caller's resolved workspace membership, taken from the
+// `workspaceIds` template data slot (populated by
+// controllers/sql.go::extractContextValues from pctx.WorkspaceIDsKey).
+//
+// When the list is missing or empty, it emits `FALSE` so
+// cross-workspace reads return nothing for users with no workspaces,
+// matching the fail-closed policy for the four workspace tables.
+//
+// Example template usage:
+//
+//	{{ workspaceScopeIn "t.workspace_id" }}
+//
+// The column is validated through internal/ident.Quote to reject
+// SQL injection — arbitrary expressions are not allowed, only dotted
+// identifiers like `t.workspace_id`.
+func (fr *FuncRegistry) workspaceScopeIn(col string) string {
+	quoted, err := ident.Quote(col)
+	if err != nil {
+		// Invalid identifier — fail safe rather than emit raw text.
+		return "FALSE"
+	}
+	raw, ok := fr.TemplateData["workspaceIds"].([]string)
+	if !ok || len(raw) == 0 {
+		return "FALSE"
+	}
+	ph := make([]string, len(raw))
+	for i := range raw {
+		fr.Args = append(fr.Args, raw[i])
+		fr.next++
+		ph[i] = fmt.Sprintf("$%d", fr.next)
+	}
+	return fmt.Sprintf("%s IN (%s)", quoted, strings.Join(ph, ","))
 }

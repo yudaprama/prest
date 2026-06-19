@@ -76,10 +76,18 @@ func ExecuteFromScripts(w http.ResponseWriter, r *http.Request) {
 // extractContextValues copies values from the request context into the
 // template data. This allows SQL templates to reference, for example,
 // `{{ sqlVal "userId" }}` to obtain the authenticated Kratos identity
-// ID that the auth middleware stored under pctx.UserIDKey.
+// ID that the auth middleware stored under pctx.UserIDKey, or
+// `{{ sqlVal "workspaceId" }}` for the workspace resolved by
+// WorkspaceAuthzGate.
 func extractContextValues(rq *http.Request, templateData map[string]interface{}) {
 	if id, ok := rq.Context().Value(pctx.UserIDKey).(string); ok && id != "" {
 		templateData["userId"] = id
+	}
+	if id, ok := rq.Context().Value(pctx.WorkspaceIDKey).(string); ok && id != "" {
+		templateData["workspaceId"] = id
+	}
+	if ids, ok := rq.Context().Value(pctx.WorkspaceIDsKey).([]string); ok && len(ids) > 0 {
+		templateData["workspaceIds"] = ids
 	}
 }
 
