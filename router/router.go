@@ -33,6 +33,7 @@ func GetRouter() *mux.Router {
 	router.HandleFunc("/show/{database}/{schema}/{table}", controllers.ShowTable).Methods("GET")
 	crudRoutes := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
 	router.HandleFunc("/_health", controllers.WrappedHealthCheck(controllers.DefaultCheckList)).Methods("GET")
+	router.HandleFunc("/authz/check", controllers.CheckAuthz).Methods("GET")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.SelectFromTables).Methods("GET")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.InsertInTables).Methods("POST")
 	crudRoutes.HandleFunc("/batch/{database}/{schema}/{table}", controllers.BatchInsertInTables).Methods("POST")

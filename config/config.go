@@ -146,6 +146,8 @@ type Prest struct {
 	PluginPath           string
 	PluginMiddlewareList []PluginMiddleware
 	Logger               *slog.Logger
+	// KetoReadURL is the Ory Keto Read API endpoint (default http://localhost:4466).
+	KetoReadURL string
 }
 
 const defaultCacheDir = "./"
@@ -274,6 +276,7 @@ func viperCfg() {
 	viper.SetDefault("context", "/")
 	viper.SetDefault("pluginpath", "./lib")
 	viper.SetDefault("pluginmiddlewarelist", []PluginMiddleware{})
+	viper.SetDefault("keto.readurl", "http://localhost:4466")
 	viper.SetDefault("expose.enabled", false)
 	viper.SetDefault("expose.tables", true)
 	viper.SetDefault("expose.schemas", true)
@@ -366,6 +369,7 @@ func Parse(cfg *Prest) {
 		slog.Error("could not unmarshal access plugin middleware list", "err", err)
 	}
 	cfg.PluginMiddlewareList = pluginMiddlewareConfig
+	cfg.KetoReadURL = viper.GetString("keto.readurl")
 }
 
 // parseDatabaseURL tries to get from URL the DB configs

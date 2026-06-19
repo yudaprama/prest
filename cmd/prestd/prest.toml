@@ -9,6 +9,9 @@ single = false
 [jwt]
 default = false
 
+[keto]
+readurl = "http://localhost:4466"
+
 [auth]
 # Ory Kratos session validation.
 # When `enabled = true`, every request must carry a valid session cookie
@@ -33,6 +36,9 @@ request_timeout = 5
 # Methods is optional; when empty, all methods match.
 [[auth.kratos.public_paths]]
 path = "/_health"
+
+[[auth.kratos.public_paths]]
+path = "/authz/check"
 
 # Custom SQL templates: aggregate reads that the BFF (Next.js) calls
 # on behalf of the user. Authenticated as long as Kratos is enabled.
@@ -62,18 +68,6 @@ database = "yarsew"
 schema = "public"
 table = "billing_audit_log"
 column = "actor_id"
-
-[[auth.user_id_filters]]
-database = "ogmami"
-schema = "public"
-table = "sessions"
-column = "identity_id"
-
-[[auth.user_id_filters]]
-database = "ogmami"
-schema = "public"
-table = "identities"
-column = "id"
 
 # --- LobeHub Tier 1 (lobehub DB) ---------------------------------------------
 # All `users` rows are owned by a Kratos identity; we filter by the
@@ -471,13 +465,13 @@ column = "user_id"
 [[auth.user_id_filters]]
 database = "lobehub"
 schema = "public"
-table = "user_persona_documents"
+table = "user_memory_persona_documents"
 column = "user_id"
 
 [[auth.user_id_filters]]
 database = "lobehub"
 schema = "public"
-table = "user_persona_document_histories"
+table = "user_memory_persona_document_histories"
 column = "user_id"
 
 [[auth.user_id_filters]]
@@ -507,7 +501,7 @@ column = "user_id"
 [[auth.user_id_filters]]
 database = "lobehub"
 schema = "public"
-table = "rag_eval_evaluation"
+table = "rag_eval_evaluations"
 column = "user_id"
 
 [[auth.user_id_filters]]
@@ -576,17 +570,47 @@ schema = "public"
 table = "task_comments"
 column = "user_id"
 
+# --- LobeHub Phase 6: message sub-tables + topic_shares --------------------
+# All 5 carry non-null `user_id` referencing users.id. Found in the message
+# sub-table audit (messages.ts) and topic.ts. The 4 message tables are
+# junction-like but carry user_id for tenant safety; topic_shares is the
+# "public link" record for topic sharing.
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "messages_files"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "message_queries"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "message_query_chunks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "message_chunks"
+column = "user_id"
+
+[[auth.user_id_filters]]
+database = "lobehub"
+schema = "public"
+table = "topic_shares"
+column = "user_id"
+
 [queries]
 location = "etc/queries"
 
 [pg.urls]]
 name = "yarsew"
 # See header comment at [pg]: real URL comes from PREST_PG_URL_YARSEW.
-url = ""
-
-[[pg.urls]]
-name = "ogmami"
-# See header comment at [pg]: real URL comes from PREST_PG_URL_OGMAMI.
 url = ""
 
 [[pg.urls]]

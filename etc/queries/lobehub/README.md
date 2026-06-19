@@ -23,6 +23,7 @@ with pREST HTTP endpoints.
 | `GET`   | `/_QUERIES/lobehub/topicsSearchFts`                | `topic.searchTopics` (FTS, replaces BM25)     | 2 |
 | `GET`   | `/_QUERIES/lobehub/documentsWithHistory`           | `document.listDocumentHistory`                 | 2 |
 | `GET`   | `/_QUERIES/lobehub/messengerInstallationsByUser`   | `messenger.getUserInstallations`                | 2 |
+| `GET`   | `/_QUERIES/lobehub/recentByUser`                   | `recent.getAll`                                 | 2 |
 | `GET`   | `/_QUERIES/lobehub/userMemoriesByLayer`            | `userMemory.getMemoriesByLayer`                 | 2 |
 | `*`     | `/lobehub/public/{table}`                          | (most flat user-scoped reads)        | 1 |
 
