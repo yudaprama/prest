@@ -27,12 +27,15 @@ with pREST HTTP endpoints.
 | `GET`   | `/_QUERIES/lobehub/userMemoriesByLayer`            | `userMemory.getMemoriesByLayer`                 | 2 |
 | `*`     | `/lobehub/public/{table}`                          | (most flat user-scoped reads)        | 1 |
 
-All endpoints require a valid `ory_kratos_session` cookie (the
-[auth.kratos] block in `cmd/prestd/prest.toml` validates it). The
-identity ID is then made available to SQL templates as the template
-variable `userId` (see `controllers/sql.go::extractContextValues`), and
-auto-injected as `WHERE <column> = <id>` for every Tier 1 table listed
-under `[[auth.user_id_filters]]`.
+All endpoints require an authenticated identity. The runtime config
+(the parent repo's root `prest.toml` — the single pREST config) resolves
+the identity either from the `X-User-Id` header (set by an upstream
+gateway/BFF) or, when `[auth.kratos]` is enabled, by validating the
+`ory_kratos_session` cookie. The identity ID is then made available to
+SQL templates as the template variable `userId` (see
+`controllers/sql.go::extractContextValues`), and auto-injected as
+`WHERE <column> = <id>` for every Tier 1 table listed under
+`[[auth.user_id_filters]]`.
 
 ## Convention
 

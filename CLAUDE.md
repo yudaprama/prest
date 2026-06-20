@@ -9,7 +9,11 @@ This fork adds LobeHub server-side CRUD/query endpoints to pRESTd, with multi-te
 | `context/keys.go::UserIDKey` | Context key carrying the authenticated Kratos identity ID through the middleware chain. |
 | `controllers/sql.go::extractContextValues` | Copies `pctx.UserIDKey` into template data as the `userId` variable so SQL templates can use `{{ sqlVal "userId" }}`. |
 | `controllers/sql_userid_test.go` | Tests for the helper above. |
-| `cmd/prestd/prest.toml` | Kratos auth enabled + `[[auth.user_id_filters]]` per LobeHub table (31 entries as of Jun 16 2026). URLs are blank; resolved at runtime from env. The orchestrator copies this to `prest.toml` at the project root (where prest reads `./prest.toml` from CWD). |
+| _(runtime config)_ | The single pREST config is the **parent repo's root `prest.toml`** (`../../prest.toml`), loaded via `PREST_CONF=./prest.toml`. There is no longer a `cmd/prestd/prest.toml` template — it was a stale duplicate that diverged from the runtime config and has been removed. It carries the 84 lobehub + 2 yarsew + 2 ogmami `[[auth.user_id_filters]]`, the 4 `[[auth.workspace_id_filters]]`, `[keto]`, and (when activated) `[[auth.workspace_compat_filters]]`. URLs are blank; resolved at runtime from env. |
+| `context/keys.go::WorkspaceIDActiveKey` | Context key carrying the single active workspace id (from the `X-Workspace-Id` header) for the compat filter mode. |
+| `middlewares/workspaceactive.go` | `WorkspaceActiveMiddleware` — copies `X-Workspace-Id` into `WorkspaceIDActiveKey` (set by the BFF after its Keto Check). |
+| `adapters/postgres/workspacefilter.go::ResolveWorkspaceCompat` + `postgres.go::WhereByRequest` | Active-workspace ("compat") filter: for tables in `[[auth.workspace_compat_filters]]`, emits `workspace_id = $ws` (active) or `user_id = $uid AND workspace_id IS NULL` (personal) — mirrors LobeHub `buildWorkspaceWhere`. Suppresses the plain `user_id` filter for those tables. No Keto call on the read path. |
+| `config/config.go::WorkspaceCompatConfig` + `ValidateWorkspaceCompat` | Config struct for compat entries + startup check rejecting a table listed in both `user_id_filters` and `workspace_compat_filters`. |
 | `config/config.go::loadDotEnv` | Calls `godotenv.Load()` before viper. `.env` in CWD is auto-loaded (absent file = silent no-op). |
 | `config/config.go::parseDBConfig` | Overrides each `[[pg.urls]]` URL from `PREST_PG_URL_<NAME>` env var; legacy array form uses `PREST_PG_URL_<N>`. |
 | `etc/queries/lobehub/*.read.sql` | Tier 2 SQL templates (joined/aggregate reads). |
@@ -73,14 +77,15 @@ other entry uses `user_id`. Two batches added Jun 16 2026:
 - **Batch 2 (25→31):** `agents_files`, `agents_knowledge_bases`,
   `chat_groups`, `chat_groups_agents` (junction), `ai_models`, `ai_providers`.
 
-## Workspace scope — shipped (Phase 1 + Phase 2)
+## Workspace scope — shipped (Phase 1 + Phase 2); Phase 3 added
 
-LobeHub tables carry a `workspace_id` column for shared workspaces. Two mechanisms handle workspace scoping:
+LobeHub tables carry a `workspace_id` column for shared workspaces. Three mechanisms handle workspace scoping:
 
 - **Phase 1** (`[keto] enabled`): `WorkspaceAuthzGate` middleware validates `?workspaceId=X` via Keto `Check` before the SQL template runs. All 12 Tier 2 templates support the three-branch convention: `?workspaceId=X` (single), `?workspaceScope=all` (cross-workspace), or neither (personal).
 - **Phase 2** (`[auth] workspace_filters_enabled`): `WorkspaceMembershipResolver` resolves the caller's workspace list via Keto `ListObjects` (LRU-cached 30s) and stores it in `pctx.WorkspaceIDsKey`. The postgres adapter injects `WHERE workspace_id IN (...)` on the 4 workspace tables configured in `[[auth.workspace_id_filters]]`. The `workspaceScopeIn` template helper emits the same IN-clause for cross-workspace Tier 2 reads.
+- **Phase 3 — active-workspace ("compat")** (`[[auth.workspace_compat_filters]]` + `[auth] workspace_active_header`): for workspace-capable **content** tables (`documents`, `files`, `agents`, `sessions`, `topics`, `messages`), mirrors LobeHub `buildWorkspaceWhere` exactly — `workspace_id = $ws` when the BFF sends `X-Workspace-Id` (after its own Keto Check), else `user_id = $uid AND workspace_id IS NULL`. Distinct from Phase 2: single active workspace, not union; and **no Keto call on the read path** (the header is trusted, pre-authorized). A table in `workspace_compat_filters` is removed from `user_id_filters`; `ValidateWorkspaceCompat` rejects listing it in both. Activation requires deploying a compat-enabled binary before moving the 6 tables in the runtime config (otherwise they'd be unscoped on older binaries).
 
-Both phases are gated off by default. See `WORKSPACE_SCOPE_IMPLEMENTATION_PLAN.md` for the full design.
+All phases are gated off by default. See `WORKSPACE_SCOPE_IMPLEMENTATION_PLAN.md` for the full design.
 
 ## Views as an alternative to SQL templates
 

@@ -213,17 +213,48 @@ func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID in
 
 	pid := initialPlaceholderID
 
+	// Active-workspace ("compat") mode resolves once, up front. A table
+	// configured under [[auth.workspace_compat_filters]] gets
+	// buildWorkspaceWhere semantics (below) instead of the plain user_id
+	// filter, so the user_id block is skipped for it.
+	compat := ResolveWorkspaceCompat(r)
+
 	// Auto-inject user_id tenant filter from the auth context.
 	// Resolves the column via the configured `[[auth.user_id_filters]]`
 	// rules and the identity ID via `prest/context.UserIDKey`.
 	// Skipped when either is empty (no matching rule, or auth
-	// middleware absent).
-	if uid := UserIDFromContext(r); uid != "" {
-		if col := ResolveUserIDColumn(r); col != "" {
-			quoted, _ := ident.Quote(col)
-			whereKey = append(whereKey, fmt.Sprintf(`%s = $%d`, quoted, pid))
+	// middleware absent), and skipped when this table uses compat mode.
+	if compat == nil {
+		if uid := UserIDFromContext(r); uid != "" {
+			if col := ResolveUserIDColumn(r); col != "" {
+				quoted, _ := ident.Quote(col)
+				whereKey = append(whereKey, fmt.Sprintf(`%s = $%d`, quoted, pid))
+				whereValues = append(whereValues, uid)
+				pid++
+			}
+		}
+	}
+
+	// Active-workspace ("compat") filter — mirrors LobeHub buildWorkspaceWhere.
+	// The active workspace id comes from pctx.WorkspaceIDActiveKey (set by
+	// WorkspaceActiveMiddleware from the X-Workspace-Id header the BFF emits
+	// after its own Keto Check). No Keto call happens on this read path.
+	//   - active workspace set: WHERE <ws_col> = $ws
+	//   - personal mode:        WHERE <user_col> = $uid AND <ws_col> IS NULL
+	// Fail-open on empty identity (matches the plain user_id filter) so
+	// public endpoints keep working.
+	if compat != nil {
+		wsCol, _ := ident.Quote(compat.WorkspaceColumn)
+		usrCol, _ := ident.Quote(compat.UserColumn)
+		if ws := WorkspaceIDActiveFromContext(r); ws != "" {
+			whereKey = append(whereKey, fmt.Sprintf(`%s = $%d`, wsCol, pid))
+			whereValues = append(whereValues, ws)
+			pid++
+		} else if uid := UserIDFromContext(r); uid != "" {
+			whereKey = append(whereKey, fmt.Sprintf(`%s = $%d`, usrCol, pid))
 			whereValues = append(whereValues, uid)
 			pid++
+			whereKey = append(whereKey, fmt.Sprintf(`%s IS NULL`, wsCol))
 		}
 	}
 

@@ -21,4 +21,11 @@ const (
 	// Tier 1 workspace tables, and by the `workspaceScopeIn` template
 	// helper for cross-workspace Tier 2 reads.
 	WorkspaceIDsKey
+	// WorkspaceIDActiveKey holds the single active workspace id for the
+	// request, sourced from the X-Workspace-Id header (set by the TS BFF
+	// after its own Keto Check). Empty = personal mode. Used exclusively
+	// by the "compat" filter mode (buildWorkspaceWhere semantics) on
+	// workspace-capable content tables — distinct from WorkspaceIDsKey
+	// (union membership) and WorkspaceIDKey (?workspaceId= on templates).
+	WorkspaceIDActiveKey
 )

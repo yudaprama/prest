@@ -84,11 +84,10 @@ jobs:
           OUT="dist/prest-${{ matrix.target }}/${BINARY}"
           go build -trimpath -ldflags "-s -w" -o "${OUT}" ./cmd/prestd/
 
-      - name: Copy prest.toml alongside binary
-        run: |
-          DIR="dist/prest-${{ matrix.target }}"
-          cp cmd/prestd/prest.toml "$DIR/" 2>/dev/null || true
-
+      # No prest.toml is packed into the release: the single authoritative
+      # config is the parent repo's root prest.toml (tracked there, loaded
+      # via PREST_CONF=./prest.toml). planoctl does not copy a tarball
+      # config over it (conditional, non-clobbering).
       - name: Pack archive
         run: |
           cd dist

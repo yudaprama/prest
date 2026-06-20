@@ -63,6 +63,29 @@ type WorkspaceFilterConfig struct {
 	Column   string `mapstructure:"column"`
 }
 
+// WorkspaceCompatConfig declares the active-workspace ("compat") filter for
+// a workspace-capable content table. It mirrors LobeHub's buildWorkspaceWhere
+// exactly, replacing the plain user_id filter on that table:
+//   - active workspace present (WorkspaceIDActiveKey non-empty, from the
+//     X-Workspace-Id header set by the BFF after its Keto Check):
+//     WHERE <workspace_column> = $ws
+//   - personal mode (no active workspace):
+//     WHERE <user_column> = $uid AND <workspace_column> IS NULL
+//
+// A table MUST NOT appear in both [[auth.user_id_filters]] and
+// [[auth.workspace_compat_filters]]; Parse() rejects the overlap so each
+// table gets exactly one filter. Unlike the union-membership workspace
+// filter, this mode makes NO Keto calls on the read path — the active
+// workspace is a trusted, pre-authorized header (same trust model as
+// X-User-Id).
+type WorkspaceCompatConfig struct {
+	Database        string `mapstructure:"database"`
+	Schema          string `mapstructure:"schema"`
+	Table           string `mapstructure:"table"`
+	UserColumn      string `mapstructure:"user_column"`
+	WorkspaceColumn string `mapstructure:"workspace_column"`
+}
+
 type TablesConf struct {
 	Name        string   `mapstructure:"name"`
 	Permissions []string `mapstructure:"permissions"`
@@ -168,6 +191,13 @@ type Prest struct {
 	// only). When true, the four workspace tables are auto-scoped by
 	// WorkspaceIDsKey.
 	WorkspaceFiltersEnabled bool
+	// WorkspaceCompatFilters are the active-workspace ("compat") entries.
+	// Each listed table gets buildWorkspaceWhere semantics instead of the
+	// plain user_id filter. Inert until the list is non-empty.
+	WorkspaceCompatFilters []WorkspaceCompatConfig
+	// WorkspaceActiveHeader is the request header carrying the single
+	// active workspace id (default "X-Workspace-Id"), set by the BFF.
+	WorkspaceActiveHeader string
 }
 
 const defaultCacheDir = "./"
@@ -679,6 +709,35 @@ func parseAuthConfig(cfg *Prest) {
 		cfg.WorkspaceIDFilters = workspaceFilters
 	}
 	cfg.WorkspaceFiltersEnabled = viper.GetBool("auth.workspace_filters_enabled")
+
+	var compatFilters []WorkspaceCompatConfig
+	if err := viper.UnmarshalKey("auth.workspace_compat_filters", &compatFilters); err == nil {
+		cfg.WorkspaceCompatFilters = compatFilters
+	}
+	cfg.WorkspaceActiveHeader = viper.GetString("auth.workspace_active_header")
+
+	if err := ValidateWorkspaceCompat(cfg); err != nil {
+		slog.Error("invalid auth config: workspace_compat overlap", "err", err)
+		os.Exit(1)
+	}
+}
+
+// ValidateWorkspaceCompat rejects a table listed in both user_id_filters
+// and workspace_compat_filters — each table must receive exactly one
+// filter (compat takes runtime precedence, but the overlap is always a
+// config mistake). Returns nil when the two sets are disjoint.
+func ValidateWorkspaceCompat(cfg *Prest) error {
+	seen := make(map[[3]string]bool, len(cfg.UserIDFilters))
+	for _, f := range cfg.UserIDFilters {
+		seen[[3]string{f.Database, f.Schema, f.Table}] = true
+	}
+	for _, f := range cfg.WorkspaceCompatFilters {
+		key := [3]string{f.Database, f.Schema, f.Table}
+		if seen[key] {
+			return fmt.Errorf("table %s/%s/%s appears in both user_id_filters and workspace_compat_filters — list it in exactly one", f.Database, f.Schema, f.Table)
+		}
+	}
+	return nil
 }
 
 func parseHTTPConfig(cfg *Prest) {

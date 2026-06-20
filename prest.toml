@@ -1,3 +1,13 @@
+# ---------------------------------------------------------------------------
+# SUBMODULE-DEV / TEST STUB — not a runtime config.
+# The authoritative pREST config is the parent repo's root `prest.toml`
+# (../../prest.toml), which planoctl loads via PREST_CONF=./prest.toml.
+# This file only exists so `go test ./config/...` (smoke_test.go::
+# TestSmokeDotEnvLoad_ActualConfig) and standalone `./prestd` dev runs from
+# the submodule root have something to resolve. Keep it minimal; do NOT add
+# production table filters here — edit the parent-root prest.toml instead.
+# ---------------------------------------------------------------------------
+
 [pg]
 # Connection URL for the default database. Set `DATABASE_URL` (or
 # `PREST_PG_URL`) in the environment / .env to inject credentials
