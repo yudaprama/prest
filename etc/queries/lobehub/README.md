@@ -17,8 +17,9 @@ with pREST HTTP endpoints.
 | `GET`   | `/_QUERIES/lobehub/connectorToolsByConnector`      | `connector.list` (tools sublist)      | 2 |
 | `GET`   | `/_QUERIES/lobehub/verifyResultsWithRubric`        | `verify.listResults`                  | 2 |
 | `GET`   | `/_QUERIES/lobehub/generationBatchesWithGenerations`| `generationBatch.getGenerationBatches`| 2 |
-| `GET`   | `/_QUERIES/lobehub/knowledgeBaseFilesWithChunks`   | `file.getKnowledgeItems`             | 2 |
+| `GET`   | `/_QUERIES/lobehub/knowledgeBaseFilesWithChunks`   | `file.getKnowledgeItems` (KB subset) | 2 |
 | `GET`   | `/_QUERIES/lobehub/knowledgeItemStatuses`          | `file.getKnowledgeItemStatusesByIds` | 2 |
+| `GET`   | `/_QUERIES/lobehub/knowledgeItemsList`             | `file.getKnowledgeItems`             | 2 |
 | `GET`   | `/_QUERIES/lobehub/agentSkillsWithResources`       | `agentSkills.list` / `listResources` | 2 |
 | `GET`   | `/_QUERIES/lobehub/messagesSearchFts`              | `message.searchMessages` (FTS, replaces BM25) | 2 |
 | `GET`   | `/_QUERIES/lobehub/topicsSearchFts`                | `topic.searchTopics` (FTS, replaces BM25)     | 2 |
