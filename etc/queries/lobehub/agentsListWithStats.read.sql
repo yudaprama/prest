@@ -62,8 +62,8 @@ WHERE  a.user_id = {{ sqlVal "userId" }} AND a.workspace_id IS NULL
   AND  a.pinned = true
 {{- end }}
 {{- if isSet "keyword" }}
-  AND  (a.title       ILIKE {{ sqlVal "keywordPattern" }}
-        OR a.description ILIKE {{ sqlVal "keywordPattern" }})
+  AND  (a.title       ILIKE '%' || {{ sqlVal "keyword" }} || '%'
+        OR a.description ILIKE '%' || {{ sqlVal "keyword" }} || '%')
 {{- end }}
 {{- if isSet "tagList" }}
   AND  a.tags @> {{ sqlList "tagList" }}

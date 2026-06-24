@@ -48,7 +48,7 @@ A Supabase password was previously committed in cleartext. **Rotate it at the pr
 | `GET /_QUERIES/lobehub/{script}` | Template binds `{{ sqlVal "userId" }}` from the Kratos-injected identity. |
 | `/_health`, `/_QUERIES/public/*` | Public paths — bypass Kratos, no filter. |
 
-Filter is **silently skipped** when no matching `[[auth.user_id_filters]]` entry exists, when `pctx.UserIDKey` is empty on the request, or when the user_id is empty. This means a deployment without an auth layer is **not safe** — the filter becomes a no-op. Standard deployment has Kratos in front of pREST.
+Filter is **silently skipped** when no matching `[[auth.user_id_filters]]` entry exists, when `pctx.UserIDKey` is empty on the request, or when the user_id is empty. This means a deployment without an auth layer is **not safe** — the filter becomes a no-op. The standard deployment fronts pREST with **Ory Oathkeeper** (:4455), which validates the Kratos session and injects `X-User-Id` authoritatively; pREST must NOT be reachable directly (a client could otherwise spoof `X-User-Id`).
 
 ### Registered LobeHub Tier 1 tables (31)
 
@@ -77,13 +77,13 @@ other entry uses `user_id`. Two batches added Jun 16 2026:
 - **Batch 2 (25→31):** `agents_files`, `agents_knowledge_bases`,
   `chat_groups`, `chat_groups_agents` (junction), `ai_models`, `ai_providers`.
 
-## Workspace scope — shipped (Phase 1 + Phase 2); Phase 3 added
+## Workspace scope — Phase 1 gate REMOVED (→ Oathkeeper); Phase 2 + Phase 3 data-scope remain
 
-LobeHub tables carry a `workspace_id` column for shared workspaces. Three mechanisms handle workspace scoping:
+LobeHub tables carry a `workspace_id` column for shared workspaces. Authentication and single-workspace authorization (the old Phase 1 gate) now live in **Ory Oathkeeper** (the edge proxy on :4455); pREST keeps only the **data-scope** mechanisms:
 
-- **Phase 1** (`[keto] enabled`): `WorkspaceAuthzGate` middleware validates `?workspaceId=X` via Keto `Check` before the SQL template runs. All 12 Tier 2 templates support the three-branch convention: `?workspaceId=X` (single), `?workspaceScope=all` (cross-workspace), or neither (personal).
+- **Phase 1 (REMOVED)**: the `WorkspaceAuthzGate` middleware and the `/authz/check` endpoint have been deleted. Single-workspace authorization is now an Oathkeeper `remote_json` → Keto `Check` (gated rule in `oathkeeper-access-rules.yml`, enabled when Keto is up). The `?workspaceId=` → `pctx.WorkspaceIDKey` template-var path is now vestigial (always empty); use the Phase 3 active-workspace header for single-workspace scoping.
 - **Phase 2** (`[auth] workspace_filters_enabled`): `WorkspaceMembershipResolver` resolves the caller's workspace list via Keto `ListObjects` (LRU-cached 30s) and stores it in `pctx.WorkspaceIDsKey`. The postgres adapter injects `WHERE workspace_id IN (...)` on the 4 workspace tables configured in `[[auth.workspace_id_filters]]`. The `workspaceScopeIn` template helper emits the same IN-clause for cross-workspace Tier 2 reads.
-- **Phase 3 — active-workspace ("compat")** (`[[auth.workspace_compat_filters]]` + `[auth] workspace_active_header`): for workspace-capable **content** tables (`documents`, `files`, `agents`, `sessions`, `topics`, `messages`), mirrors LobeHub `buildWorkspaceWhere` exactly — `workspace_id = $ws` when the BFF sends `X-Workspace-Id` (after its own Keto Check), else `user_id = $uid AND workspace_id IS NULL`. Distinct from Phase 2: single active workspace, not union; and **no Keto call on the read path** (the header is trusted, pre-authorized). A table in `workspace_compat_filters` is removed from `user_id_filters`; `ValidateWorkspaceCompat` rejects listing it in both. Activation requires deploying a compat-enabled binary before moving the 6 tables in the runtime config (otherwise they'd be unscoped on older binaries).
+- **Phase 3 — active-workspace ("compat")** (`[[auth.workspace_compat_filters]]` + `[auth] workspace_active_header`): for workspace-capable **content** tables (`documents`, `files`, `agents`, `sessions`, `topics`, `messages`), mirrors LobeHub `buildWorkspaceWhere` exactly — `workspace_id = $ws` when Oathkeeper injects `X-Workspace-Id` (after its own Keto Check), else `user_id = $uid AND workspace_id IS NULL`. Distinct from Phase 2: single active workspace, not union; and **no Keto call on the read path** (the header is trusted, pre-authorized). A table in `workspace_compat_filters` is removed from `user_id_filters`; `ValidateWorkspaceCompat` rejects listing it in both. Activation requires deploying a compat-enabled binary before moving the 6 tables in the runtime config (otherwise they'd be unscoped on older binaries).
 
 All phases are gated off by default. See `WORKSPACE_SCOPE_IMPLEMENTATION_PLAN.md` for the full design.
 

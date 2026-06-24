@@ -27,6 +27,15 @@ with pREST HTTP endpoints.
 | `GET`   | `/_QUERIES/lobehub/messengerInstallationsByUser`   | `messenger.getUserInstallations`                | 2 |
 | `GET`   | `/_QUERIES/lobehub/recentByUser`                   | `recent.getAll`                                 | 2 |
 | `GET`   | `/_QUERIES/lobehub/userMemoriesByLayer`            | `userMemory.getMemoriesByLayer`                 | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemoryPersonaCurrent`       | `userMemory.getPersona`                         | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemoryIdentityRoles`        | `userMemories.queryIdentityRoles`               | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemoryIdentitiesByUser`     | `userMemories.queryIdentities`                  | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemoryExperiencesByUser`    | `userMemories.queryExperiences`                 | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemoryActivitiesByUser`     | `userMemories.queryActivities`                  | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemoryContextsByUser`       | `userMemories.queryContexts`                    | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemoryPreferencesByUser`    | `userMemories.queryPreferences`                 | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemoryDetail`               | `userMemories.getMemoryDetail`                  | 2 |
+| `GET`   | `/_QUERIES/lobehub/userMemorySearchHybrid`         | `userMemories.searchMemory` (hybrid FTS+vector) | 2 |
 | `*`     | `/lobehub/public/{table}`                          | (most flat user-scoped reads)        | 1 |
 
 All endpoints require an authenticated identity. The runtime config

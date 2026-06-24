@@ -31,3 +31,13 @@ func UserFilterMiddleware() negroni.Handler {
 		next(rw, r.WithContext(ctx))
 	})
 }
+
+// userIDFromContext returns the authenticated user id stored on the request
+// context (set by UserFilterMiddleware from the identity header that Ory
+// Oathkeeper injects). Empty when unset.
+func userIDFromContext(r *http.Request) string {
+	if id, ok := r.Context().Value(pctx.UserIDKey).(string); ok {
+		return id
+	}
+	return ""
+}
