@@ -1,0 +1,69 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest release tag
+        id: latest
+        run: |
+          TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+          if [[ -z "$TAG" ]]; then
+            TAG="v0.0.0"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Latest tag: $TAG"
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          TAG="${{ steps.latest.outputs.tag }}"
+          VERSION="${TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${VERSION%%-*}"
+          PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "New version: $NEW_VERSION"
+
+      - name: Check if version already exists
+        id: check
+        run: |
+          NEW_TAG="v${{ steps.bump.outputs.version }}"
+          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $NEW_TAG already exists — skipping"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update helpers/prest.go
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          OLD="${{ steps.latest.outputs.tag }}"
+          NEW="v${{ steps.bump.outputs.version }}"
+          sed -i "s/PrestVersionNumber = \"${OLD#v}\"/PrestVersionNumber = \"${NEW#v}\"/" helpers/prest.go
+          echo "Updated helpers/prest.go: ${OLD#v} → ${NEW#v}"
+
+      - name: Commit, tag, push
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.bump.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add helpers/prest.go
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: release v${VERSION} [skip ci]"
+          git tag "v${VERSION}"
+          git push origin main "v${VERSION}"
+          echo "✓ Pushed v${VERSION}"
