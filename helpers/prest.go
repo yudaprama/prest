@@ -2,7 +2,7 @@ package helpers
 
 var (
 	// PrestVersionNumber repesemts prest version.
-	PrestVersionNumber = "2.2.2"
+	PrestVersionNumber = "2.2.3"
 	// CommitHash for version
 	CommitHash string
 )
