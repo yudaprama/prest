@@ -3,46 +3,35 @@ name: Auto Release
 on:
   push:
     branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   auto-release:
+    name: Bump version
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
 
       - name: Get latest release tag
         id: latest
         run: |
-          # Strategy: git tags (most reliable) → gh release list → helpers/prest.go
           TAG=""
-
-          # 1. Try git tags (we have full history)
           TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
-
-          # 2. Try gh release list
           if [[ -z "$TAG" ]]; then
             TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
           fi
-
-          # 3. Fallback: parse helpers/prest.go
           if [[ -z "$TAG" ]]; then
             VERSION=$(grep -oE 'PrestVersionNumber = "[0-9]+\.[0-9]+\.[0-9]+"' helpers/prest.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
-            if [[ -n "$VERSION" ]]; then
-              TAG="v${VERSION}"
-            fi
+            if [[ -n "$VERSION" ]]; then TAG="v${VERSION}"; fi
           fi
-
-          # 4. Ultimate fallback
-          if [[ -z "$TAG" ]]; then
-            TAG="v0.0.0"
-          fi
-
+          if [[ -z "$TAG" ]]; then TAG="v0.0.0"; fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Latest tag: $TAG"
 
@@ -88,3 +77,141 @@ jobs:
           git tag "v${VERSION}"
           git push origin main "v${VERSION}"
           echo "✓ Pushed v${VERSION}"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: auto-release
+    if: always() && needs.auto-release.result != 'failure'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            archive: tar.gz
+          - target: linux-arm64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            archive: tar.gz
+          - target: darwin-amd64
+            runner: macos-latest
+            goos: darwin
+            goarch: amd64
+            archive: tar.gz
+          - target: darwin-arm64
+            runner: macos-latest
+            goos: darwin
+            goarch: arm64
+            archive: tar.gz
+          - target: windows-amd64
+            runner: ubuntu-latest
+            goos: windows
+            goarch: amd64
+            archive: zip
+          - target: windows-arm64
+            runner: ubuntu-latest
+            goos: windows
+            goarch: arm64
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="v0.0.${GITHUB_RUN_NUMBER}-$(echo "${GITHUB_SHA::7}")"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Build
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p dist
+          BINARY="prest"
+          if [[ "$GOOS" == "windows" ]]; then
+            BINARY="prest.exe"
+          fi
+          OUT="dist/prest-${{ matrix.target }}/${BINARY}"
+          go build -trimpath -ldflags "-s -w" -o "${OUT}" ./cmd/prestd/
+
+      - name: Pack archive
+        run: |
+          cd dist
+          NAME="prest-${{ matrix.target }}"
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            (cd "${NAME}" && zip -r "../prest-${{ steps.ver.outputs.version }}-${{ matrix.target }}.zip" .)
+          else
+            tar -C "${NAME}" -czf "prest-${{ steps.ver.outputs.version }}-${{ matrix.target }}.tar.gz" .
+          fi
+          sha256sum "prest-${{ steps.ver.outputs.version }}-${{ matrix.target }}.${{ matrix.archive }}" \
+            > "prest-${{ steps.ver.outputs.version }}-${{ matrix.target }}.${{ matrix.archive }}.sha256"
+          ls -lh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prest-${{ matrix.target }}
+          path: |
+            dist/prest-${{ steps.ver.outputs.version }}-${{ matrix.target }}.${{ matrix.archive }}
+            dist/prest-${{ steps.ver.outputs.version }}-${{ matrix.target }}.${{ matrix.archive }}.sha256
+          retention-days: 30
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: ver
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          if [[ "$VERSION" == *-* ]]; then
+            IS_PRERELEASE=true
+          else
+            IS_PRERELEASE=false
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh dist/
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: Release ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          prerelease: ${{ steps.ver.outputs.is_prerelease == 'true' }}
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
