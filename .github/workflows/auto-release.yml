@@ -18,10 +18,30 @@ jobs:
       - name: Get latest release tag
         id: latest
         run: |
-          TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+          # Strategy: git tags (most reliable) → gh release list → helpers/prest.go
+          TAG=""
+
+          # 1. Try git tags (we have full history)
+          TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+
+          # 2. Try gh release list
+          if [[ -z "$TAG" ]]; then
+            TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          fi
+
+          # 3. Fallback: parse helpers/prest.go
+          if [[ -z "$TAG" ]]; then
+            VERSION=$(grep -oE 'PrestVersionNumber = "[0-9]+\.[0-9]+\.[0-9]+"' helpers/prest.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+            if [[ -n "$VERSION" ]]; then
+              TAG="v${VERSION}"
+            fi
+          fi
+
+          # 4. Ultimate fallback
           if [[ -z "$TAG" ]]; then
             TAG="v0.0.0"
           fi
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Latest tag: $TAG"
 
