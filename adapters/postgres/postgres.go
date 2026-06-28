@@ -757,6 +757,30 @@ func (adapter *Postgres) ParseInsertRequest(r *http.Request) (colsName string, c
 		return
 	}
 
+	// Auto-inject the tenant identity from the auth context — the value Ory
+	// Oathkeeper put in the configured header (UserFilterMiddleware →
+	// pctx.UserIDKey). FORCE the ownership columns to the authenticated identity,
+	// overriding any client-supplied value, so the frontend stays identity-free
+	// and a caller cannot insert rows as another user. Mirrors the read-side
+	// filters (WhereByRequest). Skipped (no-op) when no identity is present or the
+	// table is in neither filter set — matching the read-side fail-open behavior.
+	if uid := UserIDFromContext(r); uid != "" {
+		if compat := ResolveWorkspaceCompat(r); compat != nil {
+			// Workspace-compat table: mirror buildWorkspaceWhere — owner is the
+			// identity; workspace is the active-workspace header, or NULL for
+			// personal scope (matches `user_id = $uid AND workspace_id IS NULL`).
+			body[compat.UserColumn] = uid
+			if ws := WorkspaceIDActiveFromContext(r); ws != "" {
+				body[compat.WorkspaceColumn] = ws
+			} else {
+				body[compat.WorkspaceColumn] = nil
+			}
+		} else if col := ResolveUserIDColumn(r); col != "" {
+			// Plain user_id-scoped table.
+			body[col] = uid
+		}
+	}
+
 	fields := make([]string, 0)
 	for key, value := range body {
 		if !ident.IsValid(key) {
