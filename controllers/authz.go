@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/prest/prest/v2/adapters/postgres"
 	"github.com/prest/prest/v2/config"
 
 	authz "github.com/yudaprama/authzworkspace"
@@ -37,7 +36,7 @@ func workspaceMembershipFallback(ctx context.Context, workspace, user, perm stri
 	if workspace == "" || user == "" {
 		return false, nil
 	}
-	db, err := postgres.Get()
+	db, err := kawaiDB()
 	if err != nil {
 		return false, err
 	}

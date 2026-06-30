@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-
-	"github.com/prest/prest/v2/adapters/postgres"
 )
 
 // Account self-service closure. Lives here (same package as workspaces.go) so it
@@ -44,7 +42,7 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	db, err := postgres.Get()
+	db, err := kawaiDB()
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
 		return

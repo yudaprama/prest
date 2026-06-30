@@ -16,6 +16,15 @@ func Get() (*sqlx.DB, error) {
 	return connection.Get()
 }
 
+// GetByName returns the connection registered under a logical name (e.g. one
+// registered via [[pg.urls]] at startup, which AddURI stores under a name key).
+// Unlike Get(), it does not depend on the shared "current database" global, so
+// it is safe for handlers mounted outside the per-CRUD middleware chain (which
+// never calls SetDatabase). Returns an error if the name is not in the pool.
+func GetByName(name string) (*sqlx.DB, error) {
+	return connection.GetFromPool(name)
+}
+
 // GetPool of connection
 func GetPool() *connection.Pool {
 	return connection.GetPool()

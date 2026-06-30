@@ -14,6 +14,8 @@ import (
 	"github.com/prest/prest/v2/adapters/postgres"
 	"github.com/prest/prest/v2/config"
 
+	"github.com/jmoiron/sqlx"
+
 	authz "github.com/yudaprama/authzworkspace"
 )
 
@@ -39,6 +41,18 @@ var roleToRelation = map[string]string{
 // workspace authz.
 func ketoClient() *authz.Client {
 	return authz.New(config.PrestConf.KetoReadURL, config.PrestConf.KetoWriteURL)
+}
+
+// kawaiDB returns the kawai database connection — the multi-tenant app schema
+// where workspaces, workspace_members, and the content tables live. The
+// workspace controllers are mounted on the top-level router and bypass the
+// per-CRUD middleware that calls SetDatabase per request, so postgres.Get()
+// (which returns the global "current database" left over from the last CRUD
+// request) is unsafe here. GetByName resolves the kawai connection by its
+// logical name (registered via [[pg.urls]] at startup), independent of global
+// state and of the default [pg] host (kawai lives on its own Supabase host).
+func kawaiDB() (*sqlx.DB, error) {
+	return postgres.GetByName("kawai")
 }
 
 // extractUserID mirrors egent-lobehub's header-priority resolution. Behind the
@@ -75,7 +89,7 @@ func createWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	db, err := postgres.Get()
+	db, err := kawaiDB()
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "workspaces not configured")
 		return
@@ -158,7 +172,7 @@ func WorkspaceMembersHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	db, err := postgres.Get()
+	db, err := kawaiDB()
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "workspaces not configured")
 		return
@@ -271,7 +285,7 @@ func deleteWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	db, err := postgres.Get()
+	db, err := kawaiDB()
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "workspaces not configured")
 		return
@@ -329,7 +343,7 @@ func WorkspaceRemoveMemberHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	db, err := postgres.Get()
+	db, err := kawaiDB()
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "workspaces not configured")
 		return
@@ -398,7 +412,7 @@ func WorkspaceLeaveHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	db, err := postgres.Get()
+	db, err := kawaiDB()
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "workspaces not configured")
 		return
@@ -478,7 +492,7 @@ func InternalWorkspaceBootstrapHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	db, err := postgres.Get()
+	db, err := kawaiDB()
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "workspaces not configured")
 		return

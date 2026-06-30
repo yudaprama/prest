@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/prest/prest/v2/adapters/postgres"
 	"github.com/prest/prest/v2/config"
 	pctx "github.com/prest/prest/v2/context"
 	"github.com/urfave/negroni/v3"
@@ -81,10 +82,44 @@ func resolveMembership(ctx context.Context, client *keto.Client, userID string) 
 
 	workspaceIDs, err := client.ListWorkspacesForUser(ctx, userID)
 	if err != nil {
-		return nil, err
+		// Fallback to the workspace_members mirror (kawai DB). Mirrors
+		// controllers/authz.go workspaceMembershipFallback. Needed when
+		// Keto's namespace model isn't loaded — self-hosted Keto can fail
+		// to register the OPL workspace namespace, in which case
+		// ListObjects 404s and the workspace tables would be empty.
+		slog.Warn("[keto] ListWorkspacesForUser failed, falling back to workspace_members", "userId", userID, "err", err)
+		workspaceIDs, err = membershipFromDB(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	membershipCache.Set(userID, workspaceIDs)
 	return workspaceIDs, nil
+}
+
+// membershipFromDB reads the user's workspace ids straight from the
+// workspace_members table (kawai DB). This is the same data the Keto
+// dual-write keeps in sync, so it is authoritative for membership listing.
+func membershipFromDB(ctx context.Context, userID string) ([]string, error) {
+	db, err := postgres.GetByName("kawai")
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.QueryContext(ctx,
+		`SELECT workspace_id FROM workspace_members WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // ResetMembershipCacheForTest clears the membership cache. Exposed only
