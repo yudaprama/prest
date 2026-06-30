@@ -153,7 +153,7 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 	io.Copy(io.Discard, resp.Body)
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
 		slog.Error("account delete: kratos identity delete status", "user", userID, "status", resp.StatusCode)
 		writeJSONError(w, http.StatusBadGateway, "identity cleanup failed")
 		return
