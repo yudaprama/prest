@@ -9,7 +9,7 @@ This fork adds LobeHub server-side CRUD/query endpoints to pRESTd, with multi-te
 | `context/keys.go::UserIDKey` | Context key carrying the authenticated Kratos identity ID through the middleware chain. |
 | `controllers/sql.go::extractContextValues` | Copies `pctx.UserIDKey` into template data as the `userId` variable so SQL templates can use `{{ sqlVal "userId" }}`. |
 | `controllers/sql_userid_test.go` | Tests for the helper above. |
-| _(runtime config)_ | The single pREST config is the **parent repo's root `prest.toml`** (`../../prest.toml`), loaded via `PREST_CONF=./prest.toml`. There is no longer a `cmd/prestd/prest.toml` template — it was a stale duplicate that diverged from the runtime config and has been removed. It carries the 84 lobehub + 2 yarsew + 2 ogmami `[[auth.user_id_filters]]`, the 4 `[[auth.workspace_id_filters]]`, `[keto]`, and (when activated) `[[auth.workspace_compat_filters]]`. URLs are blank; resolved at runtime from env. |
+| _(runtime config)_ | The single pREST config is the **parent repo's root `prest.toml`** (`../../prest.toml`), loaded via `PREST_CONF=./prest.toml`. There is no longer a `cmd/prestd/prest.toml` template — it was a stale duplicate that diverged from the runtime config and has been removed. It carries the 84 lobehub + 2 plano + 2 kratos `[[auth.user_id_filters]]`, the 4 `[[auth.workspace_id_filters]]`, `[keto]`, and (when activated) `[[auth.workspace_compat_filters]]`. URLs are blank; resolved at runtime from env. |
 | `context/keys.go::WorkspaceIDActiveKey` | Context key carrying the single active workspace id (from the `X-Workspace-Id` header) for the compat filter mode. |
 | `middlewares/workspaceactive.go` | `WorkspaceActiveMiddleware` — copies `X-Workspace-Id` into `WorkspaceIDActiveKey` (set by the BFF after its Keto Check). |
 | `adapters/postgres/workspacefilter.go::ResolveWorkspaceCompat` + `postgres.go::WhereByRequest` | Active-workspace ("compat") filter: for tables in `[[auth.workspace_compat_filters]]`, emits `workspace_id = $ws` (active) or `user_id = $uid AND workspace_id IS NULL` (personal) — mirrors LobeHub `buildWorkspaceWhere`. Suppresses the plain `user_id` filter for those tables. No Keto call on the read path. |
@@ -27,7 +27,7 @@ This fork adds LobeHub server-side CRUD/query endpoints to pRESTd, with multi-te
 ### Secret resolution precedence
 
 1. `DATABASE_URL` (or `PREST_PG_URL`) — overrides `[pg].url`
-2. `PREST_PG_URL_<NAME>` (uppercased, dashes→underscores) — overrides each `[[pg.urls]]` entry by `name`. Examples: `PREST_PG_URL_YARSEW`, `PREST_PG_URL_OGMAMI`, `PREST_PG_URL_LOBEHUB`
+2. `PREST_PG_URL_<NAME>` (uppercased, dashes→underscores) — overrides each `[[pg.urls]]` entry by `name`. Examples: `PREST_PG_URL_YARSEW`, `PREST_PG_URL_KRATOS`, `PREST_PG_URL_LOBEHUB`
 3. `PREST_PG_URL_<N>` — overrides legacy `pg.urls[i]` by zero-based index
 4. URL in `prest.toml` (fallback — should be empty in committed files)
 

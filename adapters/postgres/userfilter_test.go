@@ -31,9 +31,9 @@ func TestResolveUserIDColumn_MatchFound(t *testing.T) {
 	t.Run("by exact different database", func(t *testing.T) {
 		config.PrestConf.UserIDFilters = []config.UserFilterConfig{
 			{Database: "yarsew", Schema: "public", Table: "billing_balances", Column: "actor_id"},
-			{Database: "ogmami", Schema: "public", Table: "sessions", Column: "identity_id"},
+			{Database: "kratos", Schema: "public", Table: "sessions", Column: "identity_id"},
 		}
-		req := httptest.NewRequest("GET", "/ogmami/public/sessions", nil)
+		req := httptest.NewRequest("GET", "/kratos/public/sessions", nil)
 		column := ResolveUserIDColumn(req)
 		require.Equal(t, "identity_id", column)
 	})
@@ -196,11 +196,11 @@ func TestWhereByRequest_UserFilterWithOrClause(t *testing.T) {
 
 func TestWhereByRequest_UserFilterWithMultipleParams(t *testing.T) {
 	config.PrestConf.UserIDFilters = []config.UserFilterConfig{
-		{Database: "ogmami", Schema: "public", Table: "sessions", Column: "identity_id"},
+		{Database: "kratos", Schema: "public", Table: "sessions", Column: "identity_id"},
 	}
 
 	t.Run("user filter applied before other params", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/ogmami/public/sessions?active=true", nil)
+		req := httptest.NewRequest("GET", "/kratos/public/sessions?active=true", nil)
 		ctx := context.WithValue(req.Context(), pctx.UserIDKey, "identity-789")
 		req = req.WithContext(ctx)
 

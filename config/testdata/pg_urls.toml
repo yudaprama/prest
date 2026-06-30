@@ -2,12 +2,12 @@
 single = false
 
 [[pg.urls]]
-name = "yarsew"
+name = "plano"
 url = "postgresql://placeholder:yarsew@db.example.com:5432/yarsew?sslmode=require"
 
 [[pg.urls]]
-name = "ogmami"
-url = "postgresql://placeholder:ogmami@db.example.com:5432/ogmami?sslmode=require"
+name = "kratos"
+url = "postgresql://placeholder:kratos@db.example.com:5432/kratos?sslmode=require"
 
 [[pg.urls]]
 name = "lobehub-dev"

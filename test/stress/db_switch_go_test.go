@@ -22,7 +22,7 @@ func TestMultiDatabaseSwitching(t *testing.T) {
 
 	config.Load()
 	
-	databases := []string{"yarsew", "ogmami"}
+	databases := []string{"plano", "kratos"}
 	iterations := 100
 	concurrent := 10
 	
@@ -96,7 +96,7 @@ func TestDatabaseSwitchingUnderLoad(t *testing.T) {
 
 	config.Load()
 	
-	databases := []string{"yarsew", "ogmami"}
+	databases := []string{"plano", "kratos"}
 	duration := 10 * time.Second
 	concurrent := 20
 	
@@ -171,25 +171,25 @@ func TestDatabaseIsolation(t *testing.T) {
 		
 		go func() {
 			defer wg.Done()
-			req := httptest.NewRequest("GET", "/yarsew/public", nil)
+			req := httptest.NewRequest("GET", "/plano/public", nil)
 			w := httptest.NewRecorder()
 			router := router.GetRouter()
 			router.ServeHTTP(w, req)
 			
 			if w.Code != http.StatusOK {
-				errors <- fmt.Errorf("yarsew query failed: %d", w.Code)
+				errors <- fmt.Errorf("plano query failed: %d", w.Code)
 			}
 		}()
 		
 		go func() {
 			defer wg.Done()
-			req := httptest.NewRequest("GET", "/ogmami/public", nil)
+			req := httptest.NewRequest("GET", "/kratos/public", nil)
 			w := httptest.NewRecorder()
 			router := router.GetRouter()
 			router.ServeHTTP(w, req)
 			
 			if w.Code != http.StatusOK {
-				errors <- fmt.Errorf("ogmami query failed: %d", w.Code)
+				errors <- fmt.Errorf("kratos query failed: %d", w.Code)
 			}
 		}()
 	}

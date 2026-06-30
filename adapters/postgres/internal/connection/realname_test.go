@@ -11,7 +11,7 @@ func TestSetRealName(t *testing.T) {
 	// Register mappings for the multi-connection use case
 	SetRealName("myalias", "postgres")
 	SetRealName("yarsew", "postgres")
-	SetRealName("ogmami", "postgres")
+	SetRealName("kratos", "postgres")
 
 	tests := []struct {
 		name     string
@@ -20,7 +20,7 @@ func TestSetRealName(t *testing.T) {
 	}{
 		{"myalias maps to postgres", "myalias", "postgres"},
 		{"yarsew maps to postgres", "yarsew", "postgres"},
-		{"ogmami maps to postgres", "ogmami", "postgres"},
+		{"kratos maps to postgres", "kratos", "postgres"},
 		{"unmapped returns PGDatabase fallback", "unknown", "postgres"},
 		{"empty returns empty", "", ""},
 	}

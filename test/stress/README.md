@@ -12,11 +12,11 @@ url = "postgresql://user:pass@host:5432/maindb?sslmode=require"
 single = false
 
 [[pg.urls]]
-name = "yarsew"
+name = "plano"
 url = "postgresql://user:pass@host1:5432/db1?sslmode=require"
 
 [[pg.urls]]
-name = "ogmami"
+name = "kratos"
 url = "postgresql://user:pass@host2:5432/db2?sslmode=require"
 ```
 
@@ -24,8 +24,8 @@ url = "postgresql://user:pass@host2:5432/db2?sslmode=require"
 
 ```bash
 export PREST_HOST="http://localhost:3000"
-export DB1="yarsew"
-export DB2="ogmami"
+export DB1="plano"
+export DB2="kratos"
 ```
 
 ## Verified URL Patterns

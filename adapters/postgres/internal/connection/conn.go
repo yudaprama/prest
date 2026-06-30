@@ -111,7 +111,7 @@ func GetPool() *Pool {
 
 // ResolveDBName returns the actual database name for a logical/alias name.
 // The SQL builder qualifies identifiers as "database"."schema"."table", so a
-// logical alias (e.g. "yarsew") must be translated to the real database name
+// logical alias (e.g. "plano") must be translated to the real database name
 // (e.g. "postgres") that the connection is actually bound to. The mapping is
 // resolved in this order:
 //  1. An explicit registration in the pool (RealName).

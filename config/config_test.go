@@ -392,7 +392,7 @@ func TestParseDBConfig_NamedURLs_EnvOverride(t *testing.T) {
 
 	t.Run("defaults from file", func(t *testing.T) {
 		os.Unsetenv("PREST_PG_URL_YARSEW")
-		os.Unsetenv("PREST_PG_URL_OGMAMI")
+		os.Unsetenv("PREST_PG_URL_KRATOS")
 		os.Unsetenv("PREST_PG_URL_LOBEHUB_DEV")
 
 		viperCfg()
@@ -400,16 +400,16 @@ func TestParseDBConfig_NamedURLs_EnvOverride(t *testing.T) {
 		Parse(cfg)
 
 		require.Len(t, cfg.PGNamedURLs, 3)
-		require.Equal(t, "yarsew", cfg.PGNamedURLs[0].Name)
+		require.Equal(t, "plano", cfg.PGNamedURLs[0].Name)
 		require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[0].URL))
-		require.Equal(t, "ogmami", cfg.PGNamedURLs[1].Name)
+		require.Equal(t, "kratos", cfg.PGNamedURLs[1].Name)
 		require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[1].URL))
 		require.Equal(t, "lobehub-dev", cfg.PGNamedURLs[2].Name)
 		require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[2].URL))
 	})
 
 	t.Run("env override replaces named URL", func(t *testing.T) {
-		os.Unsetenv("PREST_PG_URL_OGMAMI")
+		os.Unsetenv("PREST_PG_URL_KRATOS")
 		os.Unsetenv("PREST_PG_URL_LOBEHUB_DEV")
 		t.Setenv("PREST_PG_URL_YARSEW", "postgresql://envuser:envpass@db.prest.example.com:5432/envdb?sslmode=require")
 
@@ -426,7 +426,7 @@ func TestParseDBConfig_NamedURLs_EnvOverride(t *testing.T) {
 
 	t.Run("env override with hyphenated name", func(t *testing.T) {
 		os.Unsetenv("PREST_PG_URL_YARSEW")
-		os.Unsetenv("PREST_PG_URL_OGMAMI")
+		os.Unsetenv("PREST_PG_URL_KRATOS")
 		t.Setenv("PREST_PG_URL_LOBEHUB_DEV", "postgresql://hyphen:user@db.example.com:5432/hyphen?sslmode=require")
 
 		viperCfg()
@@ -447,8 +447,8 @@ func TestParseDBConfig_LegacyURLs_EnvOverride(t *testing.T) {
 
 func Test_pgURLEnvKey(t *testing.T) {
 	tt := []struct{ in, want string }{
-		{"yarsew", "YARSEW"},
-		{"ogmami", "OGMAMI"},
+		{"plano", "YARSEW"},
+		{"kratos", "OGMAMI"},
 		{"lobehub-dev", "LOBEHUB_DEV"},
 		{"my.db name", "MY_DB_NAME"},
 		{"", ""},

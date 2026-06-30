@@ -5,8 +5,8 @@
 set -e
 
 HOST="${PREST_HOST:-http://localhost:3000}"
-DB1="${DB1:-yarsew}"
-DB2="${DB2:-ogmami}"
+DB1="${DB1:-plano}"
+DB2="${DB2:-kratos}"
 DURATION="${DURATION:-30}"
 RATE="${RATE:-100}"  # requests per second
 WORKERS="${WORKERS:-20}"
