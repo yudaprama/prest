@@ -45,6 +45,9 @@ func GetRouter() *mux.Router {
 	router.HandleFunc("/v1/workspaces/members", controllers.WorkspaceMembersHandler).Methods("POST")
 	router.HandleFunc("/v1/workspaces/members/remove", controllers.WorkspaceRemoveMemberHandler).Methods("POST")
 	router.HandleFunc("/v1/workspaces/leave", controllers.WorkspaceLeaveHandler).Methods("POST")
+	// Account self-service closure (purges Kawai + workspaces + Keto + Kratos
+	// identity). Same cookie-authed edge rule as /v1/workspaces.* (prest-workspaces-v1).
+	router.HandleFunc("/v1/account/delete", controllers.AccountDeleteHandler).Methods("POST")
 	router.HandleFunc("/internal/workspaces/bootstrap", controllers.InternalWorkspaceBootstrapHandler).Methods("POST")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.SelectFromTables).Methods("GET")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.InsertInTables).Methods("POST")
