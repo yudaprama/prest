@@ -52,12 +52,34 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	kc := ketoClient()
 	ctx := r.Context()
 
-	// Reverse-lookup the user's workspace set BEFORE deleting anything, so Keto
-	// tuple cleanup still has the object list once the rows are gone.
-	var wsIDs []string
-	if kc.Enabled() {
-		wsIDs, _ = kc.ListWorkspacesForUser(ctx, userID)
+	// Gather the caller's workspace memberships from the membership mirror
+	// (workspace_members), kept in sync with Keto on every create/member/leave
+	// op. We use the DB rather than Keto ListWorkspacesForUser so this works even
+	// when Keto is disabled — and, importantly, we do NOT read workspaces.owner_id,
+	// which may be absent on older migrated schemas; the role on
+	// workspace_members is the ownership source of truth.
+	memberRows, err := db.QueryContext(ctx,
+		`SELECT workspace_id, role FROM workspace_members WHERE user_id = $1`, userID)
+	if err != nil {
+		slog.Error("account delete: list memberships", "user", userID, "err", err)
+		writeJSONError(w, http.StatusBadGateway, "could not purge account data")
+		return
 	}
+	var ownedIDs, allIDs []string
+	for memberRows.Next() {
+		var id, role string
+		if err := memberRows.Scan(&id, &role); err != nil {
+			memberRows.Close()
+			slog.Error("account delete: scan membership", "err", err)
+			writeJSONError(w, http.StatusBadGateway, "could not purge account data")
+			return
+		}
+		allIDs = append(allIDs, id)
+		if role == roleOwner {
+			ownedIDs = append(ownedIDs, id)
+		}
+	}
+	memberRows.Close()
 
 	// 1) Content by user_id. Order matters for FK safety: messages/topics reference
 	// sessions (cascade), so delete the children first; sessions last.
@@ -76,24 +98,17 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 2) Owned workspaces. RETURNING the ids so we can wipe their Keto tuples;
-	// the row delete FK-cascades workspace_members + any leftover scoped content.
-	ownedRows, err := db.QueryContext(ctx,
-		`DELETE FROM workspaces WHERE owner_id = $1 RETURNING id`, userID)
-	if err != nil {
-		slog.Error("account delete: delete owned workspaces", "user", userID, "err", err)
-		writeJSONError(w, http.StatusBadGateway, "could not purge account data")
-		return
+	// 2) Owned workspaces. Deleting the row FK-cascades its workspace_members +
+	// any leftover scoped content (same semantics as DELETE /v1/workspaces).
+	for _, id := range ownedIDs {
+		if _, err := db.ExecContext(ctx, `DELETE FROM workspaces WHERE id = $1`, id); err != nil {
+			slog.Error("account delete: delete owned workspace", "workspace", id, "user", userID, "err", err)
+			writeJSONError(w, http.StatusBadGateway, "could not purge account data")
+			return
+		}
 	}
-	var ownedIDs []string
-	for ownedRows.Next() {
-		var id string
-		_ = ownedRows.Scan(&id)
-		ownedIDs = append(ownedIDs, id)
-	}
-	ownedRows.Close()
 
-	// 3) Membership rows in workspaces the caller did NOT own.
+	// 3) Remaining membership rows in workspaces the caller did NOT own.
 	if _, err := db.ExecContext(ctx,
 		`DELETE FROM workspace_members WHERE user_id = $1`, userID); err != nil {
 		slog.Error("account delete: delete memberships", "user", userID, "err", err)
@@ -109,7 +124,7 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 				slog.Error("account delete: keto object cleanup", "workspace", id, "err", err)
 			}
 		}
-		for _, id := range wsIDs {
+		for _, id := range allIDs {
 			if err := deleteSubjectTuples(ctx, kc, id, userID); err != nil {
 				slog.Error("account delete: keto subject cleanup", "workspace", id, "err", err)
 			}
@@ -145,6 +160,6 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("account deleted", "user", userID,
-		"owned", len(ownedIDs), "member_of", len(wsIDs))
+		"owned", len(ownedIDs), "member_of", len(allIDs))
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
 }
