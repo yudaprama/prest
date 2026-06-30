@@ -91,19 +91,26 @@ func (s *Stmt) Prepare(db *sqlx.DB, tx *sql.Tx, SQL string) (statement *sql.Stmt
 func Load() {
 	config.PrestConf.Adapter = &Postgres{}
 
-	if connection.GetDatabase() == "" {
-		connection.SetDatabase(config.PrestConf.PGDatabase)
-	}
+	// In multi-database mode (SingleDB = false), named connections are
+	// registered via AddURI at startup and used explicitly. Skip the
+	// default connection to avoid dialling a database that may not exist.
+	if config.PrestConf.SingleDB {
+		if connection.GetDatabase() == "" {
+			connection.SetDatabase(config.PrestConf.PGDatabase)
+		}
 
-	db, err := connection.Get()
-	if err != nil {
-		slog.Error("connection get error", "err", err)
-		os.Exit(1)
-	}
-	err = db.Ping()
-	if err != nil {
-		slog.Error("db ping error", "err", err)
-		os.Exit(1)
+		db, err := connection.Get()
+		if err != nil {
+			slog.Error("connection get error", "err", err)
+			os.Exit(1)
+		}
+		err = db.Ping()
+		if err != nil {
+			slog.Error("db ping error", "err", err)
+			os.Exit(1)
+		}
+	} else {
+		slog.Info("multi-database mode: skipping default pg connection", "named_urls", len(config.PrestConf.PGNamedURLs))
 	}
 }
 
