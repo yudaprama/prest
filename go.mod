@@ -1,6 +1,6 @@
 module github.com/prest/prest/v2
 
-go 1.25.0
+go 1.26.4
 
 // todo: upgrade go-jose
 // github.com/go-jose/go-jose/v4 v4.0.4
@@ -12,6 +12,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gosidekick/migration/v3 v3.0.0
 	github.com/jmoiron/sqlx v1.4.0
+	github.com/joho/godotenv v1.5.1
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/lib/pq v1.10.9
 	github.com/mitchellh/go-homedir v1.1.0
@@ -27,7 +28,6 @@ require (
 require (
 	github.com/go-sql-driver/mysql v1.10.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 )
 
 require (
@@ -58,6 +58,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/rtred v0.1.2 // indirect
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
+	github.com/yudaprama/authzworkspace v0.0.2
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect

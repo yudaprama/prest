@@ -20,7 +20,7 @@ import (
 
 	"github.com/prest/prest/v2/config"
 	pctx "github.com/prest/prest/v2/context"
-	"github.com/prest/prest/v2/internal/keto"
+	keto "github.com/yudaprama/authzworkspace"
 	"github.com/prest/prest/v2/middlewares"
 	"github.com/urfave/negroni/v3"
 )
@@ -233,4 +233,4 @@ func TestWorkspaceMembershipResolver_CacheHit(t *testing.T) {
 }
 
 // avoid unused-import: keto is imported for the constant reference.
-var _ = keto.PermissionView
+var _ = keto.WorkspaceNamespace
