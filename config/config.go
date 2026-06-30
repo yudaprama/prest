@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -264,14 +266,23 @@ func viperCfg() {
 	configFile = getPrestConfFile(os.Getenv("PREST_CONF"))
 
 	dir, file := filepath.Split(configFile)
-	file = strings.TrimSuffix(file, filepath.Ext(file))
+	ext := filepath.Ext(file)
+	file = strings.TrimSuffix(file, ext)
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvPrefix("PREST")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(replacer)
 	viper.AddConfigPath(dir)
 	viper.SetConfigName(file)
-	viper.SetConfigType("toml")
+
+	// Detect config format from extension. YAML configs support $VAR syntax
+	// which is resolved from the process environment before parsing.
+	switch ext {
+	case ".yaml", ".yml":
+		viper.SetConfigType("yaml")
+	default:
+		viper.SetConfigType("toml")
+	}
 
 	viper.SetDefault("auth.enabled", false)
 	viper.SetDefault("auth.username", "username")
@@ -343,6 +354,27 @@ func viperCfg() {
 	viper.SetDefault("queries.location", filepath.Join(hDir, "queries"))
 }
 
+// renderConfig reads a YAML config file and substitutes $VAR placeholders
+// with values from the process environment. Returns the rendered content
+// ready for viper to parse.
+var envVarRe = regexp.MustCompile(`\$([A-Za-z_][A-Za-z0-9_]*)`)
+
+func renderConfig(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
+	}
+	rendered := envVarRe.ReplaceAllStringFunc(string(data), func(match string) string {
+		varName := match[1:]
+		if v := os.Getenv(varName); v != "" {
+			return v
+		}
+		// Leave unresolved vars as-is (viper will use default or empty).
+		return match
+	})
+	return []byte(rendered), nil
+}
+
 func getPrestConfFile(prestConf string) string {
 	if prestConf != "" {
 		return prestConf
@@ -353,13 +385,28 @@ func getPrestConfFile(prestConf string) string {
 // Parse pREST config
 // todo: split config onto methods to simplify this
 func Parse(cfg *Prest) {
-	err := viper.ReadInConfig()
-	if err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			slog.Warn("file not found, falling back to default settings", "file", configFile)
-			cfg.PGSSLMode = "disable"
+	// For YAML configs, render $VAR placeholders from the process environment
+	// before passing to viper. This allows $ENV_VAR syntax in the config file
+	// (e.g. url: $KAWAI_PG_DSN) so secrets stay out of the committed config.
+	isYAML := strings.HasSuffix(configFile, ".yaml") || strings.HasSuffix(configFile, ".yml")
+	slog.Debug("parse config", "file", configFile, "isYAML", isYAML)
+	if isYAML {
+		if rendered, err := renderConfig(configFile); err == nil {
+			if err := viper.ReadConfig(bytes.NewReader(rendered)); err != nil {
+				slog.Error("could not read rendered yaml config", "err", err)
+			}
+		} else {
+			slog.Error("could not render yaml config", "file", configFile, "err", err)
 		}
-		slog.Warn("read env config error", "err", err)
+	} else {
+		err := viper.ReadInConfig()
+		if err != nil {
+			if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+				slog.Warn("file not found, falling back to default settings", "file", configFile)
+				cfg.PGSSLMode = "disable"
+			}
+			slog.Warn("read env config error", "err", err)
+		}
 	}
 
 	parseAuthConfig(cfg)
@@ -402,7 +449,7 @@ func Parse(cfg *Prest) {
 
 	// table access config
 	var tablesconf []TablesConf
-	err = viper.UnmarshalKey("access.tables", &tablesconf)
+	err := viper.UnmarshalKey("access.tables", &tablesconf)
 	if err != nil {
 		slog.Error("could not unmarshal access tables", "err", err)
 	}
@@ -620,38 +667,14 @@ func parseDBConfig(cfg *Prest) {
 			if namedURLs[i].URL != "" && namedURLs[i].Name == "" {
 				namedURLs[i].Name = DBNameFromURL(namedURLs[i].URL)
 			}
-			// Allow PREST_PG_URL_<NAME> to override the URL inline.
-			// Use this for keeping credentials out of prest.toml: leave
-			// the URL blank in the file and supply it via env / .env.
-			if v := os.Getenv("PREST_PG_URL_" + pgURLEnvKey(namedURLs[i].Name)); v != "" {
-				namedURLs[i].URL = v
-				if namedURLs[i].Name == "" {
-					namedURLs[i].Name = DBNameFromURL(v)
-				}
-			}
 		}
 	}
 	if hasNamedURLs(namedURLs) {
 		cfg.PGNamedURLs = namedURLs
 	} else {
-		// Legacy string array: also honour PREST_PG_URL_<N> for each entry.
-		urls := viper.GetStringSlice("pg.urls")
-		for i := range urls {
-			if v := os.Getenv("PREST_PG_URL_" + strconv.Itoa(i)); v != "" {
-				urls[i] = v
-			}
-		}
-		cfg.PGURLs = urls
+		// Legacy string array.
+		cfg.PGURLs = viper.GetStringSlice("pg.urls")
 	}
-}
-
-// pgURLEnvKey normalises a pg.urls entry name into an env-var-friendly
-// suffix: uppercase, with dashes and spaces replaced by underscores.
-// An empty name yields an empty suffix, which produces "PREST_PG_URL_"
-// — the caller can still set it but the lookup is order-dependent.
-func pgURLEnvKey(name string) string {
-	r := strings.NewReplacer("-", "_", " ", "_", ".", "_")
-	return strings.ToUpper(r.Replace(name))
 }
 
 func hasNamedURLs(urls []PGURLConfig) bool {

@@ -1,0 +1,117 @@
+# ---------------------------------------------------------------------------
+# pREST — the single runtime config (read via PREST_CONF=./prest.yaml).
+# Secrets use $ENV_VAR syntax — resolved at startup from the process environment.
+# ---------------------------------------------------------------------------
+
+pg:
+  url: $LOBEHUB_PG_DSN
+  single: false
+  urls:
+    - name: plano
+      url: $PLANO_PG_DSN
+    - name: kratos
+      url: $KRATOS_DSN
+    - name: kawai
+      url: $KAWAI_PG_DSN
+
+jwt:
+  default: false
+
+cors:
+  # CORS is owned EXCLUSIVELY by the Ory Oathkeeper edge (:4455).
+  # Sentinel origin ensures pREST never emits its own CORS headers.
+  alloworigin:
+    - "https://cors.owned-by-oathkeeper-edge.invalid"
+
+keto:
+  readurl: "http://localhost:4466"
+  writeurl: "http://localhost:4467"
+  enabled: true
+
+auth:
+  user_id_header: "X-User-Id"
+  workspace_filters_enabled: true
+  workspace_active_header: "X-Workspace-Id"
+
+  user_id_filters:
+    # --- plano (billing) ---------------------------------------------------
+    - database: plano
+      schema: public
+      table: billing_balances
+      column: actor_id
+    - database: plano
+      schema: public
+      table: billing_audit_log
+      column: actor_id
+    # --- kratos (Kratos identity) ------------------------------------------
+    - database: kratos
+      schema: public
+      table: sessions
+      column: identity_id
+    - database: kratos
+      schema: public
+      table: identities
+      column: id
+    # --- kawai RAG internal tables (user_id scoped, defense-in-depth) ------
+    - database: kawai
+      schema: public
+      table: chunks
+      column: user_id
+    - database: kawai
+      schema: public
+      table: file_chunks
+      column: user_id
+    - database: kawai
+      schema: public
+      table: embeddings
+      column: user_id
+    - database: kawai
+      schema: public
+      table: document_chunks
+      column: user_id
+
+  workspace_compat_filters:
+    # --- kawai (app DB) — content tables -----------------------------------
+    - database: kawai
+      schema: public
+      table: sessions
+      user_column: user_id
+      workspace_column: workspace_id
+    - database: kawai
+      schema: public
+      table: topics
+      user_column: user_id
+      workspace_column: workspace_id
+    - database: kawai
+      schema: public
+      table: messages
+      user_column: user_id
+      workspace_column: workspace_id
+    - database: kawai
+      schema: public
+      table: files
+      user_column: user_id
+      workspace_column: workspace_id
+    - database: kawai
+      schema: public
+      table: documents
+      user_column: user_id
+      workspace_column: workspace_id
+    - database: kawai
+      schema: public
+      table: agents
+      user_column: user_id
+      workspace_column: workspace_id
+
+  workspace_id_filters:
+    - database: kawai
+      schema: public
+      table: workspaces
+      column: id
+    - database: kawai
+      schema: public
+      table: workspace_members
+      column: workspace_id
+
+queries:
+  location: etc/queries

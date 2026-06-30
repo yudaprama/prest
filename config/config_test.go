@@ -387,76 +387,34 @@ func Test_ExposeDataConfig(t *testing.T) {
 	}
 }
 
-func TestParseDBConfig_NamedURLs_EnvOverride(t *testing.T) {
+func TestParseDBConfig_NamedURLs(t *testing.T) {
 	t.Setenv("PREST_CONF", "testdata/pg_urls.toml")
 
-	t.Run("defaults from file", func(t *testing.T) {
-		os.Unsetenv("PREST_PG_URL_YARSEW")
-		os.Unsetenv("PREST_PG_URL_KRATOS")
-		os.Unsetenv("PREST_PG_URL_LOBEHUB_DEV")
+	viperCfg()
+	cfg := &Prest{}
+	Parse(cfg)
 
-		viperCfg()
-		cfg := &Prest{}
-		Parse(cfg)
-
-		require.Len(t, cfg.PGNamedURLs, 3)
-		require.Equal(t, "plano", cfg.PGNamedURLs[0].Name)
-		require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[0].URL))
-		require.Equal(t, "kratos", cfg.PGNamedURLs[1].Name)
-		require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[1].URL))
-		require.Equal(t, "lobehub-dev", cfg.PGNamedURLs[2].Name)
-		require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[2].URL))
-	})
-
-	t.Run("env override replaces named URL", func(t *testing.T) {
-		os.Unsetenv("PREST_PG_URL_KRATOS")
-		os.Unsetenv("PREST_PG_URL_LOBEHUB_DEV")
-		t.Setenv("PREST_PG_URL_YARSEW", "postgresql://envuser:envpass@db.prest.example.com:5432/envdb?sslmode=require")
-
-		viperCfg()
-		cfg := &Prest{}
-		Parse(cfg)
-
-		require.Len(t, cfg.PGNamedURLs, 3)
-		require.Equal(t, "envuser", extractURLUser(cfg.PGNamedURLs[0].URL))
-		// other entries unchanged
-		require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[1].URL))
-		require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[2].URL))
-	})
-
-	t.Run("env override with hyphenated name", func(t *testing.T) {
-		os.Unsetenv("PREST_PG_URL_YARSEW")
-		os.Unsetenv("PREST_PG_URL_KRATOS")
-		t.Setenv("PREST_PG_URL_LOBEHUB_DEV", "postgresql://hyphen:user@db.example.com:5432/hyphen?sslmode=require")
-
-		viperCfg()
-		cfg := &Prest{}
-		Parse(cfg)
-
-		require.Len(t, cfg.PGNamedURLs, 3)
-		require.Equal(t, "hyphen", extractURLUser(cfg.PGNamedURLs[2].URL))
-	})
+	require.Len(t, cfg.PGNamedURLs, 3)
+	require.Equal(t, "plano", cfg.PGNamedURLs[0].Name)
+	require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[0].URL))
+	require.Equal(t, "kratos", cfg.PGNamedURLs[1].Name)
+	require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[1].URL))
+	require.Equal(t, "lobehub-dev", cfg.PGNamedURLs[2].Name)
+	require.Equal(t, "placeholder", extractURLUser(cfg.PGNamedURLs[2].URL))
 }
 
-func TestParseDBConfig_LegacyURLs_EnvOverride(t *testing.T) {
-	// The legacy `pg.urls = [...]` inline-array form is not parsable
-	// through TOML (viper treats it as `pg.pg.urls`). This test
-	// validates at least the helper surface.
-	require.Equal(t, "", pgURLEnvKey(""))
-}
+func TestParse_YAML_DollarVarSubstitution(t *testing.T) {
+	t.Setenv("PREST_CONF", "testdata/pg_urls.yaml")
+	t.Setenv("TEST_DB_URL", "postgresql://testuser:testpass@db.test.example.com:5432/testdb?sslmode=require")
+	defer os.Unsetenv("TEST_DB_URL")
 
-func Test_pgURLEnvKey(t *testing.T) {
-	tt := []struct{ in, want string }{
-		{"plano", "YARSEW"},
-		{"kratos", "OGMAMI"},
-		{"lobehub-dev", "LOBEHUB_DEV"},
-		{"my.db name", "MY_DB_NAME"},
-		{"", ""},
-	}
-	for _, tc := range tt {
-		got := pgURLEnvKey(tc.in)
-		require.Equal(t, tc.want, got, "pgURLEnvKey(%q)", tc.in)
-	}
+	viperCfg()
+	cfg := &Prest{}
+	Parse(cfg)
+
+	require.Len(t, cfg.PGNamedURLs, 1)
+	require.Equal(t, "testdb", cfg.PGNamedURLs[0].Name)
+	require.Equal(t, "testuser", extractURLUser(cfg.PGNamedURLs[0].URL))
 }
 
 // extractURLUser is a test helper that parses a PostgreSQL URL and

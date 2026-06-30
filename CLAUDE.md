@@ -9,31 +9,30 @@ This fork adds LobeHub server-side CRUD/query endpoints to pRESTd, with multi-te
 | `context/keys.go::UserIDKey` | Context key carrying the authenticated Kratos identity ID through the middleware chain. |
 | `controllers/sql.go::extractContextValues` | Copies `pctx.UserIDKey` into template data as the `userId` variable so SQL templates can use `{{ sqlVal "userId" }}`. |
 | `controllers/sql_userid_test.go` | Tests for the helper above. |
-| _(runtime config)_ | The single pREST config is the **parent repo's root `prest.toml`** (`../../prest.toml`), loaded via `PREST_CONF=./prest.toml`. There is no longer a `cmd/prestd/prest.toml` template — it was a stale duplicate that diverged from the runtime config and has been removed. It carries the 84 lobehub + 2 plano + 2 kratos `[[auth.user_id_filters]]`, the 4 `[[auth.workspace_id_filters]]`, `[keto]`, and (when activated) `[[auth.workspace_compat_filters]]`. URLs are blank; resolved at runtime from env. |
+| _(runtime config)_ | The single pREST config is `prest.yaml` (YAML format with `$ENV_VAR` syntax), loaded via `PREST_CONF=./prest.yaml`. pREST resolves `$VAR` placeholders from the process environment at startup. No `PREST_PG_URL_*` injection needed — DSN env vars are read directly. |
 | `context/keys.go::WorkspaceIDActiveKey` | Context key carrying the single active workspace id (from the `X-Workspace-Id` header) for the compat filter mode. |
 | `middlewares/workspaceactive.go` | `WorkspaceActiveMiddleware` — copies `X-Workspace-Id` into `WorkspaceIDActiveKey` (set by the BFF after its Keto Check). |
 | `adapters/postgres/workspacefilter.go::ResolveWorkspaceCompat` + `postgres.go::WhereByRequest` | Active-workspace ("compat") filter: for tables in `[[auth.workspace_compat_filters]]`, emits `workspace_id = $ws` (active) or `user_id = $uid AND workspace_id IS NULL` (personal) — mirrors LobeHub `buildWorkspaceWhere`. Suppresses the plain `user_id` filter for those tables. No Keto call on the read path. |
 | `config/config.go::WorkspaceCompatConfig` + `ValidateWorkspaceCompat` | Config struct for compat entries + startup check rejecting a table listed in both `user_id_filters` and `workspace_compat_filters`. |
 | `config/config.go::loadDotEnv` | Calls `godotenv.Load()` before viper. `.env` in CWD is auto-loaded (absent file = silent no-op). |
-| `config/config.go::parseDBConfig` | Overrides each `[[pg.urls]]` URL from `PREST_PG_URL_<NAME>` env var; legacy array form uses `PREST_PG_URL_<N>`. |
+| `config/config.go::renderConfig` | Reads YAML config and resolves `$VAR` placeholders from the process environment before parsing. |
 | `etc/queries/lobehub/*.read.sql` | Tier 2 SQL templates (joined/aggregate reads). |
 | `scripts/release.sh` | One-shot release — `./scripts/release.sh` to auto-bump and ship. |
 | `RELEASE.md` | 60-second release guide for humans and agents. |
 
-## Runtime config — important deviation from upstream
+## Runtime config — YAML with $ENV_VAR syntax
 
-`cmd/prestd/main.go` does **not** `//go:embed prest.toml`. The binary reads `prest.toml` from disk at startup (path via `PREST_CONF` or `./prest.toml` in CWD). Both `prest.toml` and `.env` are runtime files, not compile-time inputs.
+`cmd/prestd/main.go` does **not** `//go:embed prest.yaml`. The binary reads `prest.yaml` from disk at startup (path via `PREST_CONF` or `./prest.yaml` in CWD). `$VAR` placeholders in the YAML are resolved from the process environment at startup.
 
-### Secret resolution precedence
+### Secret resolution
 
 1. `DATABASE_URL` (or `PREST_PG_URL`) — overrides `[pg].url`
-2. `PREST_PG_URL_<NAME>` (uppercased, dashes→underscores) — overrides each `[[pg.urls]]` entry by `name`. Examples: `PREST_PG_URL_YARSEW`, `PREST_PG_URL_KRATOS`, `PREST_PG_URL_LOBEHUB`
-3. `PREST_PG_URL_<N>` — overrides legacy `pg.urls[i]` by zero-based index
-4. URL in `prest.toml` (fallback — should be empty in committed files)
+2. `$ENV_VAR` in YAML — resolved from process environment (e.g. `$KAWAI_PG_DSN`)
+3. URL in `prest.yaml` (fallback — should use `$VAR` syntax in committed files)
 
-`prest.toml` ships with `url = ""` for every connection. Real values come from `.env` (dev) or orchestrator env vars (prod). `.env` is in `.gitignore`; `.env.example` documents the variable names.
+`prest.yaml` uses `$ENV_VAR` syntax for secrets (e.g. `url: $KAWAI_PG_DSN`). Real values come from `.env` (dev) or orchestrator env vars (prod). `.env` is in `.gitignore`; `.env.example` documents the variable names.
 
-If both `prest.toml` and the env var are blank, that connection is silently skipped at registration (`cmd/prestd/main.go::registerExtraURLs`).
+If a `$VAR` is unresolved (not in environment), the URL is empty and that connection is silently skipped at registration.
 
 ### Historical leak — rotate the credential
 

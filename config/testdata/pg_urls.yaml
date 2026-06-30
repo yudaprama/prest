@@ -1,0 +1,5 @@
+pg:
+  single: false
+  urls:
+    - name: testdb
+      url: $TEST_DB_URL
