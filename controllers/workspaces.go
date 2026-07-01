@@ -511,7 +511,7 @@ func InternalWorkspaceBootstrapHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Name == "" {
-		body.Name = "My Workspace"
+		body.Name = "Default"
 	}
 	wsID := "ws_default_" + body.UserID // deterministic → idempotent
 	ctx := r.Context()
