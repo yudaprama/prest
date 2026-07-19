@@ -1,0 +1,19 @@
+etc/queries/public/shareById.read.sql
+  s_cb63b04cd2467b::t_f977e9fdb624f0 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3719ab5b67f13b2e760f92c350e887c3f678f242",
+  "prompts": {},
+  "sessions": {
+    "s_cb63b04cd2467b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a7406bc4-b7d2-41d2-bfc8-a04dcd12a155",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
