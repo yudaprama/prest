@@ -1,0 +1,110 @@
+etc/queries/lobehub/connectorsListWithTools.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 13-14,21,64-65,67
+etc/queries/lobehub/topicsListBySession.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 5-6,48-51,53
+etc/queries/lobehub/agentByForkedFrom.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 14
+middlewares/workspaceactive.go
+  s_c810b4519ffba8::t_98ffbd858462eb 12-15,17,26
+  s_c810b4519ffba8::t_866f539c6c698b 19,21,25
+etc/queries/lobehub/knowledgeBaseFilesWithChunks.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 10,49-52,54,58-63,65-66
+tests/lobehub/templates_test.go
+  s_c810b4519ffba8::t_866f539c6c698b 128,137-138,144,146,149-150,153,163-165,195,233
+  s_c810b4519ffba8::t_98ffbd858462eb 22,29,41-42,110-114,133,135,141-143,145,147,151,154,160,162,167-168,199,232
+etc/queries/lobehub/agentsListWithStats.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 5-6,34,46-47,49,53-54,56
+etc/queries/lobehub/generationBatchesWithGenerations.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 10-11,61-62,64,69-70,72
+etc/queries/lobehub/knowledgeItemStatuses.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 10,30-31,33,37-38,40
+etc/queries/lobehub/messagesListByTopic.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 5,41-42,51-52,61-62,76-77,79
+context/keys.go
+  s_c810b4519ffba8::t_0b6ad612c4f3d1 11,19-21,26-28
+  s_c810b4519ffba8::t_98ffbd858462eb 13-14,17-18,22,25
+  s_c810b4519ffba8::t_866f539c6c698b 12
+controllers/sql.go
+  s_c810b4519ffba8::t_866f539c6c698b 87
+  s_c810b4519ffba8::t_98ffbd858462eb 80-81,86
+etc/queries/lobehub/recentByUser.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 5,33-36,38,55-58,60,80-83,85,102-105,107
+template/funcregistry.go
+  s_c810b4519ffba8::t_9e949fb68988d3 32-33,122-142
+etc/queries/lobehub/topicsSearchFts.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 5,40-41,43
+adapters/postgres/workspacefilter.go
+  s_c810b4519ffba8::t_866f539c6c698b 33
+  s_c810b4519ffba8::t_98ffbd858462eb 11,13,15-16,28-29,42-45
+  s_c810b4519ffba8::t_0f51c4959d48da 40-41,50
+etc/queries/lobehub/agentFilesByAgent.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 6-7,34,53-54,56,58-59,61
+tests/lobehub/workspacefilter_test.go
+  s_c810b4519ffba8::t_0b6ad612c4f3d1 59,66,208
+  s_c810b4519ffba8::t_866f539c6c698b 38,43,50,78,95,112,119,132,139,148,172,188,202,206
+  s_c810b4519ffba8::t_98ffbd858462eb 26,28-29,31,36-37,40,42,48-49,52,54,61,68-69,74,76-77,82-84,88,96,99,107-108,128-129,154,157,162,173,180,182,187,191,196,201,205
+etc/queries/lobehub/agentsRank.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 21
+etc/queries/lobehub/agentSkillsWithResources.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 11-12,36,56-57,59
+etc/queries/lobehub/compressionCreateGroup.write.sql
+  s_c810b4519ffba8::t_866f539c6c698b 16,22
+etc/queries/lobehub/sessionsListGrouped.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 5,35-38,40,45-48,50,54-57,59
+etc/queries/lobehub/sessionsSearchByKeyword.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 6,51-52,54
+etc/queries/lobehub/connectorToolsByConnector.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 6-7,36-37,39
+config/config.go
+  s_c810b4519ffba8::t_98ffbd858462eb 56-57,59-63,67,69,71,76,174-175,177,179,318,702,704,708,714,718,723
+  s_c810b4519ffba8::t_866f539c6c698b 66,178,180,703,706,709,715,726
+  s_c810b4519ffba8::t_0f51c4959d48da 72-75,128-129
+controllers/account.go
+  s_c810b4519ffba8::t_98ffbd858462eb 17,28
+  s_c810b4519ffba8::t_866f539c6c698b 29-30
+adapters/postgres/postgres.go
+  s_c810b4519ffba8::t_98ffbd858462eb 223,225,227,245-247,249,745-747
+  s_c810b4519ffba8::t_866f539c6c698b 224,254,748,751,753
+  s_c810b4519ffba8::t_0b6ad612c4f3d1 256,750
+etc/queries/lobehub/documentsWithHistory.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 11,33,36-37,39
+etc/queries/lobehub/agentSharesByUser.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 8,29-32,34
+etc/queries/lobehub/knowledgeItemsList.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 10,71-74,76,129-132,134,202-205,207,263-266,268
+etc/queries/lobehub/taskCreate.write.sql
+  s_c810b4519ffba8::t_866f539c6c698b 10-11,31-34,36,46,64,81
+middlewares/workspaceactive_test.go
+  s_c810b4519ffba8::t_866f539c6c698b 13-14,16,33,35,37,54,56,58
+  s_c810b4519ffba8::t_98ffbd858462eb 20,27,30,34,41,48,51,55,62
+etc/queries/lobehub/briefsListUnresolved.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 25
+etc/queries/lobehub/agentsCount.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 15
+router/router.go
+  s_c810b4519ffba8::t_98ffbd858462eb 38,49
+etc/queries/lobehub/messagesSearchFts.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 5,42-43,45
+etc/queries/lobehub/threadMessages.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 5,35-38,40,42-45,47
+etc/queries/lobehub/usageAggregateByDay.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 10,31-34,36
+etc/queries/lobehub/verifyResultsWithRubric.read.sql
+  s_c810b4519ffba8::t_866f539c6c698b 11,45-48,50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "26b83cd346f94835cc89ce1422f1d8b340bdf7ec",
+  "prompts": {},
+  "sessions": {
+    "s_c810b4519ffba8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f9a3d-559c-7f72-96b7-00df2478c42a",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
