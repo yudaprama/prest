@@ -33,22 +33,10 @@ func GetRouter() *mux.Router {
 	router.HandleFunc("/show/{database}/{schema}/{table}", controllers.ShowTable).Methods("GET")
 	crudRoutes := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
 	router.HandleFunc("/_health", controllers.WrappedHealthCheck(controllers.DefaultCheckList)).Methods("GET")
-	// Workspace authz gate for the Oathkeeper edge (remote_json). Registered on
-	// the top-level router so it bypasses the per-CRUD user-scope middleware —
-	// it's an internal authz call, not a user-scoped data request.
-	router.Handle("/authz/workspace", controllers.AuthzWorkspaceHandler()).Methods("POST")
-	// Workspace management surface (CRUD + members + Kratos signup bootstrap).
-	// Ported from egent-lobehub; registered on the top-level router so these
-	// run their own Keto-based authz rather than the per-CRUD user-scope chain.
-	// /internal/* is loopback-only (not routed by the public edge).
-	router.HandleFunc("/v1/workspaces", controllers.WorkspacesHandler).Methods("POST", "DELETE")
-	router.HandleFunc("/v1/workspaces/members", controllers.WorkspaceMembersHandler).Methods("POST")
-	router.HandleFunc("/v1/workspaces/members/remove", controllers.WorkspaceRemoveMemberHandler).Methods("POST")
-	router.HandleFunc("/v1/workspaces/leave", controllers.WorkspaceLeaveHandler).Methods("POST")
-	// Account self-service closure (purges Kawai + workspaces + Keto + Kratos
-	// identity). Same cookie-authed edge rule as /v1/workspaces.* (prest-workspaces-v1).
+	// Account self-service closure (purges Kawai data + Kratos identity).
+	// Membership/tenant/invite management moved to Hatchet — prest is now a
+	// pure data layer. Cookie-authed via the prest-workspaces-v1 edge rule.
 	router.HandleFunc("/v1/account/delete", controllers.AccountDeleteHandler).Methods("POST")
-	router.HandleFunc("/internal/workspaces/bootstrap", controllers.InternalWorkspaceBootstrapHandler).Methods("POST")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.SelectFromTables).Methods("GET")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.InsertInTables).Methods("POST")
 	crudRoutes.HandleFunc("/batch/{database}/{schema}/{table}", controllers.BatchInsertInTables).Methods("POST")
@@ -59,7 +47,6 @@ func GetRouter() *mux.Router {
 		middlewares.ExposureMiddleware(),
 		middlewares.UserFilterMiddleware(),
 		middlewares.WorkspaceActiveMiddleware(),
-		middlewares.WorkspaceMembershipResolver(),
 		middlewares.CacheMiddleware(&config.PrestConf.Cache),
 		// plugins middleware
 		plugins.MiddlewarePlugin(),
