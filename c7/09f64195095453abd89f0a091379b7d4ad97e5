@@ -1,0 +1,19 @@
+controllers/account.go
+  s_284f15e41b2899::t_04426008e0bc4d 17-19,27-30,65,93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c709f64195095453abd89f0a091379b7d4ad97e5",
+  "prompts": {},
+  "sessions": {
+    "s_284f15e41b2899": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_066eb327afferY7zZNBbA5L65K",
+        "model": "kawai-pro-max"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
