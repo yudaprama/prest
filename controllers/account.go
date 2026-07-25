@@ -14,7 +14,7 @@ import (
 
 // AccountDeleteHandler: POST /v1/account/delete — irreversibly closes the
 // caller's account. Purges, in order:
-//  1. Kawai content by user_id (personal-scope rows + workspace-scoped rows).
+//  1. Kawai content by user_id (personal-scope rows + tenant-scoped rows).
 //     Leaf tables first; sessions cascades its messages/topics.
 //  2. Kratos identity (loopback admin :4434) — LAST. Idempotent (404 = already
 //     gone) so a retry after a partial failure is safe; deleting the identity
@@ -25,9 +25,9 @@ import (
 // this. Any orphaned key row is unusable once the Kratos identity is gone
 // (ext_authz → Talos verify resolves the actor against Kratos).
 //
-// Workspace/membership cleanup is handled by the frontend before this call:
-//   - For owned workspaces: DELETE /.hatchet/api/v1/tenants/{id}
-//   - Leaving other workspaces: DELETE /.hatchet/api/v1/tenants/{id}/members/{m}
+// Tenant/membership cleanup is handled by the frontend before this call:
+//   - For owned tenants: DELETE /.hatchet/api/v1/tenants/{id}
+//   - Leaving other tenants: DELETE /.hatchet/api/v1/tenants/{id}/members/{m}
 func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")

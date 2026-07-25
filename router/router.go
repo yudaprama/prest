@@ -35,7 +35,7 @@ func GetRouter() *mux.Router {
 	router.HandleFunc("/_health", controllers.WrappedHealthCheck(controllers.DefaultCheckList)).Methods("GET")
 	// Account self-service closure (purges Kawai data + Kratos identity).
 	// Membership/tenant/invite management moved to Hatchet — prest is now a
-	// pure data layer. Cookie-authed via the prest-workspaces-v1 edge rule.
+	// pure data layer. Cookie-authed via the prest-tenants-v1 edge rule.
 	router.HandleFunc("/v1/account/delete", controllers.AccountDeleteHandler).Methods("POST")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.SelectFromTables).Methods("GET")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.InsertInTables).Methods("POST")
@@ -46,7 +46,7 @@ func GetRouter() *mux.Router {
 		middlewares.AccessControl(),
 		middlewares.ExposureMiddleware(),
 		middlewares.UserFilterMiddleware(),
-		middlewares.WorkspaceActiveMiddleware(),
+		middlewares.TenantActiveMiddleware(),
 		middlewares.CacheMiddleware(&config.PrestConf.Cache),
 		// plugins middleware
 		plugins.MiddlewarePlugin(),

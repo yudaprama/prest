@@ -7,7 +7,7 @@
 -- (chunking + embedding task status/error).
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -27,17 +27,17 @@ LEFT JOIN (
     SELECT fc.file_id,
            COUNT(fc.chunk_id)::int AS chunk_count
     FROM   file_chunks fc
-    {{- if isSet "workspaceId" }}
-    WHERE  fc.workspace_id = {{ sqlVal "workspaceId" }}
+    {{- if isSet "tenantId" }}
+    WHERE  fc.tenant_id = {{ sqlVal "tenantId" }}
     {{- else }}
-    WHERE  fc.workspace_id IS NULL
+    WHERE  fc.tenant_id IS NULL
     {{- end }}
     GROUP  BY fc.file_id
 ) cc ON cc.file_id = f.id
-{{- if isSet "workspaceId" }}
-WHERE  f.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+WHERE  f.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-WHERE  f.user_id = {{ sqlVal "userId" }} AND f.workspace_id IS NULL
+WHERE  f.user_id = {{ sqlVal "userId" }} AND f.tenant_id IS NULL
 {{- end }}
   AND  f.id IN {{ sqlList "ids" }}
 ORDER  BY f.id;

@@ -22,7 +22,7 @@
 SELECT
     b.id,
     b.user_id,
-    b.workspace_id,
+    b.tenant_id,
     b.task_id,
     b.cron_job_id,
     b.topic_id,

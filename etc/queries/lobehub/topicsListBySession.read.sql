@@ -2,8 +2,8 @@
 -- Replaces: routers/lambda/topic.ts: queryTopics
 --
 -- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+--               tenantId (optional query param — if set, scope to workspace;
+--                            else personal scope with tenant_id IS NULL)
 --
 -- Query params:
 --   sessionId  (string, required) — scope to one session
@@ -45,12 +45,12 @@ LEFT JOIN LATERAL (
     ORDER  BY created_at DESC
     LIMIT  1
 ) lm ON true
-{{- if isSet "workspaceId" }}
-WHERE  t.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "t.workspace_id" }}
+{{- if isSet "tenantId" }}
+WHERE  t.tenant_id = {{ sqlVal "tenantId" }}
+{{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+WHERE  {{ tenantScopeIn "t.tenant_id" }}
 {{- else }}
-WHERE  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
+WHERE  t.user_id = {{ sqlVal "userId" }} AND t.tenant_id IS NULL
 {{- end }}
   AND  t.session_id = {{ sqlVal "sessionId" }}
 {{- if eq (defaultOrValue "favorite" "false") "true" }}

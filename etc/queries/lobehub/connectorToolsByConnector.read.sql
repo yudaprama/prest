@@ -3,8 +3,8 @@
 --           services/connector/impls/...: queryByConnector
 --
 -- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+--               tenantId (optional query param — if set, scope to workspace;
+--                            else personal scope with tenant_id IS NULL)
 --
 -- Query params:
 --   userConnectorId (uuid, required) — the connector row whose tools we want
@@ -33,10 +33,10 @@ SELECT
     created_at,
     updated_at
 FROM   user_connector_tools
-{{- if isSet "workspaceId" }}
-WHERE  workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+WHERE  tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+WHERE  user_id = {{ sqlVal "userId" }} AND tenant_id IS NULL
 {{- end }}
   AND  user_connector_id = {{ sqlVal "userConnectorId" }}
 {{- if eq (defaultOrValue "includeDisabled" "false") "false" }}

@@ -2,7 +2,7 @@
 -- Replaces: routers/lambda/thread.ts: getThreads
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -32,19 +32,19 @@ SELECT
 FROM   threads t
 LEFT JOIN messages m
        ON m.thread_id = t.id
-       {{- if isSet "workspaceId" }}
-       AND m.workspace_id = {{ sqlVal "workspaceId" }}
-       {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-       AND {{ workspaceScopeIn "m.workspace_id" }}
+       {{- if isSet "tenantId" }}
+       AND m.tenant_id = {{ sqlVal "tenantId" }}
+       {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+       AND {{ tenantScopeIn "m.tenant_id" }}
        {{- else }}
-       AND m.workspace_id IS NULL
+       AND m.tenant_id IS NULL
        {{- end }}
-{{- if isSet "workspaceId" }}
-WHERE  t.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "t.workspace_id" }}
+{{- if isSet "tenantId" }}
+WHERE  t.tenant_id = {{ sqlVal "tenantId" }}
+{{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+WHERE  {{ tenantScopeIn "t.tenant_id" }}
 {{- else }}
-WHERE  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
+WHERE  t.user_id = {{ sqlVal "userId" }} AND t.tenant_id IS NULL
 {{- end }}
   AND  t.topic_id = {{ sqlVal "topicId" }}
 GROUP  BY t.id

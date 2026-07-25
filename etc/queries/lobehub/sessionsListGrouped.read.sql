@@ -2,7 +2,7 @@
 -- Replaces: routers/lambda/session.ts: getGroupedSessions
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -32,31 +32,31 @@ SELECT
 FROM   sessions s
 LEFT JOIN session_groups g
        ON g.id = s.group_id
-{{- if isSet "workspaceId" }}
-      AND g.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-      AND {{ workspaceScopeIn "g.workspace_id" }}
+{{- if isSet "tenantId" }}
+      AND g.tenant_id = {{ sqlVal "tenantId" }}
+{{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+      AND {{ tenantScopeIn "g.tenant_id" }}
 {{- else }}
-      AND g.workspace_id IS NULL
+      AND g.tenant_id IS NULL
 {{- end }}
 LEFT JOIN (
     SELECT session_id, COUNT(*) AS cnt
     FROM   topics
-    {{- if isSet "workspaceId" }}
-    WHERE  workspace_id = {{ sqlVal "workspaceId" }}
-    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-    WHERE  {{ workspaceScopeIn "workspace_id" }}
+    {{- if isSet "tenantId" }}
+    WHERE  tenant_id = {{ sqlVal "tenantId" }}
+    {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+    WHERE  {{ tenantScopeIn "tenant_id" }}
     {{- else }}
-    WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+    WHERE  user_id = {{ sqlVal "userId" }} AND tenant_id IS NULL
     {{- end }}
     GROUP  BY session_id
 ) t ON t.session_id = s.id
-{{- if isSet "workspaceId" }}
-WHERE  s.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "s.workspace_id" }}
+{{- if isSet "tenantId" }}
+WHERE  s.tenant_id = {{ sqlVal "tenantId" }}
+{{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+WHERE  {{ tenantScopeIn "s.tenant_id" }}
 {{- else }}
-WHERE  s.user_id = {{ sqlVal "userId" }} AND s.workspace_id IS NULL
+WHERE  s.user_id = {{ sqlVal "userId" }} AND s.tenant_id IS NULL
 {{- end }}
 {{- if eq (defaultOrValue "includePinnedOnly" "false") "true" }}
   AND  s.pinned = true

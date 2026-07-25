@@ -19,14 +19,14 @@ import (
 // scope constants for testTemplateData.
 const (
 	scopePersonal        = "personal"
-	scopeSingleWorkspace = "single_workspace"
+	scopeSingleTenant = "single_tenant"
 )
 
 // TestLobehubTemplatesParse validates every `.read.sql` under
 // prest/etc/queries/lobehub through the same Go text/template engine
 // that ParseScript uses, without requiring a live Postgres connection.
 //
-// It runs each template twice (personal-mode + workspace-mode) and
+// It runs each template twice (personal-mode + tenant-mode) and
 // asserts:
 //   1. Template parses without syntax error
 //   2. Template executes without panic/error
@@ -38,8 +38,8 @@ func TestLobehubTemplatesParse(t *testing.T) {
 		t.Run("personal/"+name, func(t *testing.T) {
 			executeLobehubScript(t, name, testTemplateData(scopePersonal))
 		})
-		t.Run("workspace/"+name, func(t *testing.T) {
-			executeLobehubScript(t, name, testTemplateData(scopeSingleWorkspace))
+		t.Run("tenant/"+name, func(t *testing.T) {
+			executeLobehubScript(t, name, testTemplateData(scopeSingleTenant))
 		})
 
 	}
@@ -107,11 +107,11 @@ func executeLobehubScript(t *testing.T, name string, data map[string]interface{}
 	}
 }
 
-// TestLobehubWorkspaceBranching verifies the workspace_id IS NULL leak
-// fix in the workspace-bearing scripts: personal-mode SQL must contain
-// "workspace_id IS NULL", workspace-mode SQL must not.
-func TestLobehubWorkspaceBranching(t *testing.T) {
-	workspaceScripts := map[string]bool{
+// TestLobehubTenantBranching verifies the tenant_id IS NULL leak
+// fix in the tenant-bearing scripts: personal-mode SQL must contain
+// "tenant_id IS NULL", tenant-mode SQL must not.
+func TestLobehubTenantBranching(t *testing.T) {
+	tenantScripts := map[string]bool{
 		"sessionsListGrouped.read.sql":              true,
 		"topicsListBySession.read.sql":              true,
 		"messagesListByTopic.read.sql":              true,
@@ -125,47 +125,47 @@ func TestLobehubWorkspaceBranching(t *testing.T) {
 		"knowledgeBaseFilesWithChunks.read.sql":     true,
 		"agentSkillsWithResources.read.sql":         true,
 	}
-	// notificationsListWithDeliveries is the only one without a workspace_id column.
+	// notificationsListWithDeliveries is the only one without a tenant_id column.
 	personalOnly := map[string]bool{
 		"notificationsListWithDeliveries.read.sql": true,
 	}
 
-	for name := range workspaceScripts {
+	for name := range tenantScripts {
 		name := name
-		t.Run(name+"_personal_has_workspace_null", func(t *testing.T) {
+		t.Run(name+"_personal_has_tenant_null", func(t *testing.T) {
 			sql := renderScript(t, name, scopePersonal)
-			if !strings.Contains(sql, "workspace_id IS NULL") {
-				t.Errorf("personal-mode SQL missing 'workspace_id IS NULL' clause\nSQL:\n%s", sql)
+			if !strings.Contains(sql, "tenant_id IS NULL") {
+				t.Errorf("personal-mode SQL missing 'tenant_id IS NULL' clause\nSQL:\n%s", sql)
 			}
 		})
-		t.Run(name+"_workspace_does_not_branch_to_null", func(t *testing.T) {
-			sql := renderScript(t, name, scopeSingleWorkspace)
-			// The workspace-mode branch should produce `workspace_id = $N`, not
-			// `workspace_id IS NULL` (which is the personal-mode branch).
-			// The join `AND g.workspace_id = $N` style is the workspace branch.
-			if strings.Contains(sql, "AND g.workspace_id IS NULL") {
-				t.Errorf("workspace-mode SQL incorrectly contains 'AND g.workspace_id IS NULL'\nSQL:\n%s", sql)
+		t.Run(name+"_tenant_does_not_branch_to_null", func(t *testing.T) {
+			sql := renderScript(t, name, scopeSingleTenant)
+			// The tenant-mode branch should produce `tenant_id = $N`, not
+			// `tenant_id IS NULL` (which is the personal-mode branch).
+			// The join `AND g.tenant_id = $N` style is the tenant branch.
+			if strings.Contains(sql, "AND g.tenant_id IS NULL") {
+				t.Errorf("tenant-mode SQL incorrectly contains 'AND g.tenant_id IS NULL'\nSQL:\n%s", sql)
 			}
-			// Outer WHERE must use workspace_id = $N (not IS NULL)
-			if strings.Contains(sql, "WHERE  s.workspace_id IS NULL") {
-				t.Errorf("workspace-mode SQL contains 'WHERE s.workspace_id IS NULL' (personal branch)\nSQL:\n%s", sql)
+			// Outer WHERE must use tenant_id = $N (not IS NULL)
+			if strings.Contains(sql, "WHERE  s.tenant_id IS NULL") {
+				t.Errorf("tenant-mode SQL contains 'WHERE s.tenant_id IS NULL' (personal branch)\nSQL:\n%s", sql)
 			}
-			if !strings.Contains(sql, "workspace_id = $") {
-				t.Errorf("workspace-mode SQL missing 'workspace_id = $' predicate\nSQL:\n%s", sql)
+			if !strings.Contains(sql, "tenant_id = $") {
+				t.Errorf("tenant-mode SQL missing 'tenant_id = $' predicate\nSQL:\n%s", sql)
 			}
 		})
 	}
 	for name := range personalOnly {
 		name := name
-		t.Run(name+"_no_workspace_branching", func(t *testing.T) {
+		t.Run(name+"_no_tenant_branching", func(t *testing.T) {
 			personalSQL := renderScript(t, name, scopePersonal)
-			workspaceSQL := renderScript(t, name, scopeSingleWorkspace)
-			// Personal-only template does not branch on workspaceId
-			if strings.Contains(personalSQL, "workspace_id IS NULL") {
-				t.Errorf("personal-only template unexpectedly contains 'workspace_id IS NULL'\nSQL:\n%s", personalSQL)
+			tenantSQL := renderScript(t, name, scopeSingleTenant)
+			// Personal-only template does not branch on tenantId
+			if strings.Contains(personalSQL, "tenant_id IS NULL") {
+				t.Errorf("personal-only template unexpectedly contains 'tenant_id IS NULL'\nSQL:\n%s", personalSQL)
 			}
-			if strings.Contains(workspaceSQL, "workspace_id") {
-				t.Errorf("personal-only template unexpectedly references workspace_id\nSQL:\n%s", workspaceSQL)
+			if strings.Contains(tenantSQL, "tenant_id") {
+				t.Errorf("personal-only template unexpectedly references tenant_id\nSQL:\n%s", tenantSQL)
 			}
 		})
 	}
@@ -192,11 +192,11 @@ func renderScript(t *testing.T, name string, scope string) string {
 
 // testTemplateData returns representative values for every parameter any
 // lobehub script references. `scope` selects which branch of the
-// workspace_id / workspaceScope / workspaceIds template helpers to
+// tenant_id / tenantScope / tenantIds template helpers to
 // exercise:
 //
 //   - scopePersonal:        user_id filter only
-//   - scopeSingleWorkspace: ?workspaceId=X path (single workspace)
+//   - scopeSingleTenant: ?tenantId=X path (single tenant)
 func testTemplateData(scope string) map[string]interface{} {
 	data := map[string]interface{}{
 		"userId":          "00000000-0000-0000-0000-000000000001",
@@ -229,8 +229,8 @@ func testTemplateData(scope string) map[string]interface{} {
 		"page":            "1",
 		"size":            "20",
 	}
-	if scope == scopeSingleWorkspace {
-		data["workspaceId"] = "00000000-0000-0000-0000-00000000aabb"
+	if scope == scopeSingleTenant {
+		data["tenantId"] = "00000000-0000-0000-0000-00000000aabb"
 	}
 	return data
 }

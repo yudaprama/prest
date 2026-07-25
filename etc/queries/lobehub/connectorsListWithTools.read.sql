@@ -10,15 +10,15 @@
 --     clientId, scopes) is safe to ship to the browser.
 --
 -- Auth scope: userId      (auto-injected from Kratos identity)
---             workspaceId (optional query param — scope to workspace;
---                          else personal scope with workspace_id IS NULL)
+--             tenantId (optional query param — scope to workspace;
+--                          else personal scope with tenant_id IS NULL)
 --
 -- Response keys are snake_case; LobehubClient (camelCase: true) rewrites them
 -- recursively, including the nested `tools` jsonb, so the FE sees camelCase.
 SELECT
     c.id,
     c.user_id,
-    c.workspace_id,
+    c.tenant_id,
     c.identifier,
     c.name,
     c.source_type,
@@ -61,9 +61,9 @@ SELECT
         '[]'::jsonb
     ) AS tools
 FROM user_connectors c
-{{- if isSet "workspaceId" }}
-WHERE  c.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+WHERE  c.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-WHERE  c.user_id = {{ sqlVal "userId" }} AND c.workspace_id IS NULL
+WHERE  c.user_id = {{ sqlVal "userId" }} AND c.tenant_id IS NULL
 {{- end }}
 ORDER  BY c.created_at, c.id;

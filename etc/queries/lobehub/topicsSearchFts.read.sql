@@ -2,7 +2,7 @@
 -- Replaces: routers/lambda/topic.ts: queryTopics (was BM25 via paradedb)
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -37,10 +37,10 @@ FROM topics t, q
 LEFT JOIN agents a ON a.id = t.agent_id
 WHERE q.tsq <> ''
   AND t.topics_tsv @@ q.tsq
-{{- if isSet "workspaceId" }}
-  AND  t.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+  AND  t.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-  AND  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
+  AND  t.user_id = {{ sqlVal "userId" }} AND t.tenant_id IS NULL
 {{- end }}
 {{- if isSet "sessionId" }}
   AND  t.session_id = {{ sqlVal "sessionId" }}

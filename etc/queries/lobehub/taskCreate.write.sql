@@ -7,8 +7,8 @@
 -- Uses SELECT ... FOR UPDATE to prevent concurrent seq conflicts.
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional — if set, scope to workspace)
---               workspaceScope (optional "all" — cross-workspace mode)
+--               tenantId  (optional — if set, scope to workspace)
+--               tenantScope (optional "all" — cross-workspace mode)
 --
 -- Query params:
 --   instruction       (text, required)
@@ -28,12 +28,12 @@ WITH scope AS (
     SELECT
         COALESCE(MAX(seq), 0) + 1 AS next_seq
     FROM tasks
-    {{- if isSet "workspaceId" }}
-    WHERE workspace_id = {{ sqlVal "workspaceId" }}
-    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-    WHERE {{ workspaceScopeIn "workspace_id" }}
+    {{- if isSet "tenantId" }}
+    WHERE tenant_id = {{ sqlVal "tenantId" }}
+    {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+    WHERE {{ tenantScopeIn "tenant_id" }}
     {{- else }}
-    WHERE created_by_user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+    WHERE created_by_user_id = {{ sqlVal "userId" }} AND tenant_id IS NULL
     {{- end }}
     FOR UPDATE
 ),
@@ -43,7 +43,7 @@ inserted AS (
         assignee_agent_id, assignee_user_id, created_by_user_id,
         created_by_agent_id, parent_task_id, priority,
         automation_mode, schedule_pattern, schedule_timezone,
-        editor_data, status, workspace_id
+        editor_data, status, tenant_id
     )
     SELECT
         'task_' || gen_random_uuid()::text,
@@ -61,7 +61,7 @@ inserted AS (
         COALESCE({{ defaultOrNull "scheduleTimezone" }}, 'UTC'),
         {{ defaultOrNull "editorData" }}::jsonb,
         'backlog',
-        {{ defaultOrNull "workspaceId" }}
+        {{ defaultOrNull "tenantId" }}
     FROM scope s
     RETURNING *
 )
@@ -78,7 +78,7 @@ SELECT
     assignee_user_id  AS "assigneeUserId",
     created_by_user_id AS "createdByUserId",
     parent_task_id   AS "parentTaskId",
-    workspace_id     AS "workspaceId",
+    tenant_id     AS "tenantId",
     automation_mode  AS "automationMode",
     schedule_pattern AS "schedulePattern",
     schedule_timezone AS "scheduleTimezone",

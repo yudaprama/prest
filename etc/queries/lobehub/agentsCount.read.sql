@@ -12,7 +12,7 @@
 SELECT COUNT(*)::int AS count
 FROM agents a
 WHERE a.user_id = {{ sqlVal "userId" }}
-  AND a.workspace_id IS NULL
+  AND a.tenant_id IS NULL
   AND (a.virtual = false OR a.virtual IS NULL)
 {{- if isSet "sessionGroupId" }}
   AND a.session_group_id = {{ sqlVal "sessionGroupId" }}

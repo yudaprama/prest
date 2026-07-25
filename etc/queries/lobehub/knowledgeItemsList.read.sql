@@ -7,7 +7,7 @@
 -- conditional branches on knowledgeBaseId.
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -68,12 +68,12 @@ SELECT * FROM (
       FROM file_chunks fc
       GROUP BY fc.file_id
   ) cc ON cc.file_id = f.id
-  {{- if isSet "workspaceId" }}
-  WHERE  f.workspace_id = {{ sqlVal "workspaceId" }}
-  {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-  WHERE  {{ workspaceScopeIn "f.workspace_id" }}
+  {{- if isSet "tenantId" }}
+  WHERE  f.tenant_id = {{ sqlVal "tenantId" }}
+  {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+  WHERE  {{ tenantScopeIn "f.tenant_id" }}
   {{- else }}
-  WHERE  f.user_id = {{ sqlVal "userId" }} AND f.workspace_id IS NULL
+  WHERE  f.user_id = {{ sqlVal "userId" }} AND f.tenant_id IS NULL
   {{- end }}
   {{- if isSet "parentId" }}
     {{- if eq (defaultOrValue "parentId" "") "null" }}
@@ -126,12 +126,12 @@ SELECT * FROM (
       NULL::jsonb                    AS embedding_error,
       false                          AS finish_embedding
   FROM   documents d
-  {{- if isSet "workspaceId" }}
-  WHERE  d.workspace_id = {{ sqlVal "workspaceId" }}
-  {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-  WHERE  {{ workspaceScopeIn "d.workspace_id" }}
+  {{- if isSet "tenantId" }}
+  WHERE  d.tenant_id = {{ sqlVal "tenantId" }}
+  {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+  WHERE  {{ tenantScopeIn "d.tenant_id" }}
   {{- else }}
-  WHERE  d.user_id = {{ sqlVal "userId" }} AND d.workspace_id IS NULL
+  WHERE  d.user_id = {{ sqlVal "userId" }} AND d.tenant_id IS NULL
   {{- end }}
     AND  d.source_type != 'file'
     AND  d.file_id IS NULL
@@ -199,12 +199,12 @@ SELECT * FROM (
       FROM file_chunks fc
       GROUP BY fc.file_id
   ) cc ON cc.file_id = f.id
-  {{- if isSet "workspaceId" }}
-  WHERE  f.workspace_id = {{ sqlVal "workspaceId" }}
-  {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-  WHERE  {{ workspaceScopeIn "f.workspace_id" }}
+  {{- if isSet "tenantId" }}
+  WHERE  f.tenant_id = {{ sqlVal "tenantId" }}
+  {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+  WHERE  {{ tenantScopeIn "f.tenant_id" }}
   {{- else }}
-  WHERE  f.user_id = {{ sqlVal "userId" }} AND f.workspace_id IS NULL
+  WHERE  f.user_id = {{ sqlVal "userId" }} AND f.tenant_id IS NULL
   {{- end }}
   {{- if not (eq (defaultOrValue "showFilesInKnowledgeBase" "false") "true") }}
     AND  NOT EXISTS (SELECT 1 FROM knowledge_base_files kbf2 WHERE kbf2.file_id = f.id)
@@ -260,12 +260,12 @@ SELECT * FROM (
       NULL::jsonb                    AS embedding_error,
       false                          AS finish_embedding
   FROM   documents
-  {{- if isSet "workspaceId" }}
-  WHERE  workspace_id = {{ sqlVal "workspaceId" }}
-  {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-  WHERE  {{ workspaceScopeIn "workspace_id" }}
+  {{- if isSet "tenantId" }}
+  WHERE  tenant_id = {{ sqlVal "tenantId" }}
+  {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+  WHERE  {{ tenantScopeIn "tenant_id" }}
   {{- else }}
-  WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+  WHERE  user_id = {{ sqlVal "userId" }} AND tenant_id IS NULL
   {{- end }}
     AND  source_type != 'file'
     AND  knowledge_base_id IS NULL

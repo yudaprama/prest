@@ -11,7 +11,7 @@
 SELECT a.id
 FROM agents a
 WHERE a.user_id = {{ sqlVal "userId" }}
-  AND a.workspace_id IS NULL
+  AND a.tenant_id IS NULL
   AND a.params->>'forkedFromIdentifier' = {{ sqlVal "forkedFromIdentifier" }}
 ORDER BY a.updated_at DESC
 LIMIT 1;

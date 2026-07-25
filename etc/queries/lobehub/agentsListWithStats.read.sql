@@ -2,8 +2,8 @@
 -- Replaces: routers/lambda/agent.ts: queryAgents
 --
 -- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+--               tenantId (optional query param — if set, scope to workspace;
+--                            else personal scope with tenant_id IS NULL)
 --
 -- Query params:
 --   sessionGroupId  (string, optional) — filter by session group
@@ -31,7 +31,7 @@ SELECT
     a.virtual,
     a.client_id,
     a.session_group_id,
-    a.workspace_id,
+    a.tenant_id,
     a.created_at,
     a.updated_at,
     COALESCE(t.topic_count, 0)::int            AS topic_count,
@@ -43,17 +43,17 @@ LEFT JOIN (
         COUNT(*)                  AS topic_count,
         MAX(updated_at)           AS last_active_at
     FROM   topics
-    {{- if isSet "workspaceId" }}
-    WHERE  workspace_id = {{ sqlVal "workspaceId" }}
+    {{- if isSet "tenantId" }}
+    WHERE  tenant_id = {{ sqlVal "tenantId" }}
     {{- else }}
-    WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+    WHERE  user_id = {{ sqlVal "userId" }} AND tenant_id IS NULL
     {{- end }}
     GROUP  BY agent_id
 ) t ON t.agent_id = a.id
-{{- if isSet "workspaceId" }}
-WHERE  a.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+WHERE  a.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-WHERE  a.user_id = {{ sqlVal "userId" }} AND a.workspace_id IS NULL
+WHERE  a.user_id = {{ sqlVal "userId" }} AND a.tenant_id IS NULL
 {{- end }}
 {{- if isSet "sessionGroupId" }}
   AND  a.session_group_id = {{ sqlVal "sessionGroupId" }}

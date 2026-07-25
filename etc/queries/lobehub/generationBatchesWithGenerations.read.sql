@@ -7,8 +7,8 @@
 -- LEFT JOIN to async_tasks. Single round-trip, no Drizzle `with:` required.
 --
 -- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+--               tenantId (optional query param — if set, scope to workspace;
+--                            else personal scope with tenant_id IS NULL)
 --
 -- Query params:
 --   topicId (string, required)
@@ -58,18 +58,18 @@ SELECT
          FROM   generations g
          LEFT JOIN async_tasks at ON at.id = g.async_task_id
          WHERE  g.generation_batch_id = gb.id
-         {{- if isSet "workspaceId" }}
-         AND    g.workspace_id = {{ sqlVal "workspaceId" }}
+         {{- if isSet "tenantId" }}
+         AND    g.tenant_id = {{ sqlVal "tenantId" }}
          {{- else }}
-         AND    g.workspace_id IS NULL
+         AND    g.tenant_id IS NULL
          {{- end }}),
         '[]'::json
     ) AS generations
 FROM   generation_batches gb
-{{- if isSet "workspaceId" }}
-WHERE  gb.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+WHERE  gb.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-WHERE  gb.user_id = {{ sqlVal "userId" }} AND gb.workspace_id IS NULL
+WHERE  gb.user_id = {{ sqlVal "userId" }} AND gb.tenant_id IS NULL
 {{- end }}
   AND  gb.generation_topic_id = {{ sqlVal "topicId" }}
 ORDER  BY gb.created_at ASC

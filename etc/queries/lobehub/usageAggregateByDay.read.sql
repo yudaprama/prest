@@ -7,7 +7,7 @@
 -- read; for billing, hit Plano directly.
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -28,12 +28,12 @@ SELECT
     COALESCE(SUM((m.usage->>'cost')::numeric) FILTER (WHERE m.role = 'assistant'),
              0)::numeric                                        AS assistant_cost
 FROM   messages m
-{{- if isSet "workspaceId" }}
-WHERE  m.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "m.workspace_id" }}
+{{- if isSet "tenantId" }}
+WHERE  m.tenant_id = {{ sqlVal "tenantId" }}
+{{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+WHERE  {{ tenantScopeIn "m.tenant_id" }}
 {{- else }}
-WHERE  m.user_id = {{ sqlVal "userId" }} AND m.workspace_id IS NULL
+WHERE  m.user_id = {{ sqlVal "userId" }} AND m.tenant_id IS NULL
 {{- end }}
   AND  m.role IN ('user', 'assistant')
   AND  m.created_at >= {{ sqlVal "startDate" }}

@@ -29,6 +29,8 @@ func (fr *FuncRegistry) RegistryAllFuncs() (funcs template.FuncMap) {
 		// secure SQL helpers
 		"sqlVal":  fr.sqlVal,
 		"sqlList": fr.sqlList,
+		// tenantScopeIn builds a safe IN predicate for cross-tenant queries.
+		"tenantScopeIn": fr.tenantScopeIn,
 		// ident quotes an SQL identifier safely.
 		"ident": fr.ident,
 	}
@@ -117,10 +119,29 @@ func (fr *FuncRegistry) sqlList(key string) string {
 	return fmt.Sprintf("($%d)", fr.next)
 }
 
+// tenantScopeIn returns an IN predicate for the tenant IDs supplied in the
+// template data. The identifier is validated before it is interpolated and
+// values remain positional parameters.
+func (fr *FuncRegistry) tenantScopeIn(column string) string {
+	quoted, err := ident.Quote(column)
+	if err != nil {
+		return "FALSE"
+	}
+	ids, ok := fr.TemplateData["tenantIds"].([]string)
+	if !ok || len(ids) == 0 {
+		return "FALSE"
+	}
+	placeholders := make([]string, len(ids))
+	for i, id := range ids {
+		fr.Args = append(fr.Args, id)
+		fr.next++
+		placeholders[i] = fmt.Sprintf("$%d", fr.next)
+	}
+	return fmt.Sprintf("%s IN (%s)", quoted, strings.Join(placeholders, ","))
+}
+
 // ident validates and safely quotes an identifier (optionally dotted path)
 func (fr *FuncRegistry) ident(key string) (string, error) {
 	s, _ := fr.TemplateData[key].(string)
 	return ident.Quote(s)
 }
-
-

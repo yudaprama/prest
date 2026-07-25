@@ -13,13 +13,13 @@
 --   metadata   (text, optional — JSON string for metadata, default '{"originalMessageCount":0}')
 WITH group_insert AS (
     INSERT INTO message_groups (
-        id, topic_id, user_id, workspace_id, type, content, description
+        id, topic_id, user_id, tenant_id, type, content, description
     )
     SELECT
         'mg_' || gen_random_uuid()::text,
         {{ sqlVal "topicId" }},
         {{ sqlVal "userId" }},
-        {{ defaultOrNull "workspaceId" }},
+        {{ defaultOrNull "tenantId" }},
         'compression',
         '...',
         COALESCE({{ defaultOrNull "metadata" }}, '{"originalMessageCount":0}')

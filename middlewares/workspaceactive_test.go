@@ -10,56 +10,56 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWorkspaceActiveMiddleware_NoConfig(t *testing.T) {
-	config.PrestConf.WorkspaceActiveHeader = ""
+func TestTenantActiveMiddleware_NoConfig(t *testing.T) {
+	config.PrestConf.TenantActiveHeader = ""
 
-	middleware := WorkspaceActiveMiddleware()
+	middleware := TenantActiveMiddleware()
 
 	var received string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if v, ok := r.Context().Value(pctx.WorkspaceIDActiveKey).(string); ok {
+		if v, ok := r.Context().Value(pctx.TenantIDActiveKey).(string); ok {
 			received = v
 		}
 		w.WriteHeader(http.StatusOK)
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.Header.Set("X-Workspace-Id", "ws-7")
+	req.Header.Set("X-Tenant-Id", "ws-7")
 	middleware.ServeHTTP(httptest.NewRecorder(), req, handler)
 
-	require.Empty(t, received, "active workspace must not be set when header config is empty")
+	require.Empty(t, received, "active tenant must not be set when header config is empty")
 }
 
-func TestWorkspaceActiveMiddleware_HeaderPresent(t *testing.T) {
-	config.PrestConf.WorkspaceActiveHeader = "X-Workspace-Id"
-	defer func() { config.PrestConf.WorkspaceActiveHeader = "" }()
+func TestTenantActiveMiddleware_HeaderPresent(t *testing.T) {
+	config.PrestConf.TenantActiveHeader = "X-Tenant-Id"
+	defer func() { config.PrestConf.TenantActiveHeader = "" }()
 
-	middleware := WorkspaceActiveMiddleware()
+	middleware := TenantActiveMiddleware()
 
 	var received string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if v, ok := r.Context().Value(pctx.WorkspaceIDActiveKey).(string); ok {
+		if v, ok := r.Context().Value(pctx.TenantIDActiveKey).(string); ok {
 			received = v
 		}
 		w.WriteHeader(http.StatusOK)
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.Header.Set("X-Workspace-Id", "ws-7")
+	req.Header.Set("X-Tenant-Id", "ws-7")
 	middleware.ServeHTTP(httptest.NewRecorder(), req, handler)
 
-	require.Equal(t, "ws-7", received, "active workspace id should be threaded into context")
+	require.Equal(t, "ws-7", received, "active tenant id should be threaded into context")
 }
 
-func TestWorkspaceActiveMiddleware_EmptyHeaderPersonalMode(t *testing.T) {
-	config.PrestConf.WorkspaceActiveHeader = "X-Workspace-Id"
-	defer func() { config.PrestConf.WorkspaceActiveHeader = "" }()
+func TestTenantActiveMiddleware_EmptyHeaderPersonalMode(t *testing.T) {
+	config.PrestConf.TenantActiveHeader = "X-Tenant-Id"
+	defer func() { config.PrestConf.TenantActiveHeader = "" }()
 
-	middleware := WorkspaceActiveMiddleware()
+	middleware := TenantActiveMiddleware()
 
 	var received string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if v, ok := r.Context().Value(pctx.WorkspaceIDActiveKey).(string); ok {
+		if v, ok := r.Context().Value(pctx.TenantIDActiveKey).(string); ok {
 			received = v
 		}
 		w.WriteHeader(http.StatusOK)

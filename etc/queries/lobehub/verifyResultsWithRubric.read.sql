@@ -8,7 +8,7 @@
 -- lives inside agent_operations.verify_plan (JSON), not as a FK column.
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -42,12 +42,12 @@ SELECT
     completed_at,
     created_at
 FROM   verify_check_results
-{{- if isSet "workspaceId" }}
-WHERE  workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "workspace_id" }}
+{{- if isSet "tenantId" }}
+WHERE  tenant_id = {{ sqlVal "tenantId" }}
+{{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+WHERE  {{ tenantScopeIn "tenant_id" }}
 {{- else }}
-WHERE  user_id = {{ sqlVal "userId" }} AND workspace_id IS NULL
+WHERE  user_id = {{ sqlVal "userId" }} AND tenant_id IS NULL
 {{- end }}
   AND  operation_id = {{ sqlVal "operationId" }}
 ORDER  BY check_item_index ASC NULLS LAST, created_at ASC

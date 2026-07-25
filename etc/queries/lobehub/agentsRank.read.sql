@@ -18,7 +18,7 @@ SELECT
 FROM agents a
 LEFT JOIN topics t ON t.agent_id = a.id
 WHERE a.user_id = {{ sqlVal "userId" }}
-  AND a.workspace_id IS NULL
+  AND a.tenant_id IS NULL
   AND (a.slug = 'inbox' OR a.virtual != true OR a.virtual IS NULL)
 GROUP BY a.id, a.title, a.avatar, a.background_color, a.slug
 HAVING COUNT(t.id) > 0

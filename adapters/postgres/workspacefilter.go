@@ -8,12 +8,12 @@ import (
 	pctx "github.com/prest/prest/v2/context"
 )
 
-// ResolveWorkspaceCompat returns the active-workspace ("compat") config for
+// ResolveTenantCompat returns the active-tenant ("compat") config for
 // the current request's {database}/{schema}/{table}, or nil if no entry
-// matches. When non-nil, WhereByRequest emits buildWorkspaceWhere semantics
+// matches. When non-nil, WhereByRequest emits buildTenantWhere semantics
 // for this table instead of the plain user_id filter.
-func ResolveWorkspaceCompat(r *http.Request) *config.WorkspaceCompatConfig {
-	if len(config.PrestConf.WorkspaceCompatFilters) == 0 {
+func ResolveTenantCompat(r *http.Request) *config.TenantCompatConfig {
+	if len(config.PrestConf.TenantCompatFilters) == 0 {
 		return nil
 	}
 
@@ -25,23 +25,24 @@ func ResolveWorkspaceCompat(r *http.Request) *config.WorkspaceCompatConfig {
 	schema := parts[1]
 	table := parts[2]
 
-	for i := range config.PrestConf.WorkspaceCompatFilters {
-		f := &config.PrestConf.WorkspaceCompatFilters[i]
+	for i := range config.PrestConf.TenantCompatFilters {
+		f := &config.PrestConf.TenantCompatFilters[i]
 		if f.Database == database &&
 			(f.Schema == "" || f.Schema == schema) &&
 			f.Table == table &&
-			f.UserColumn != "" && f.WorkspaceColumn != "" {
+			f.UserColumn != "" && f.TenantColumn != "" {
 			return f
 		}
 	}
 	return nil
 }
 
-// WorkspaceIDActiveFromContext returns the single active workspace id for the
-// request (from pctx.WorkspaceIDActiveKey, set by WorkspaceActiveMiddleware
-// from the X-Workspace-Id header). Empty string = personal mode.
-func WorkspaceIDActiveFromContext(r *http.Request) string {
-	ws, ok := r.Context().Value(pctx.WorkspaceIDActiveKey).(string)
+//	TenantIDActiveFromContext returns the single active tenant id for the
+//
+// request (from pctx.TenantIDActiveKey, set by TenantActiveMiddleware
+// from the X-Tenant-Id header). Empty string = personal mode.
+func TenantIDActiveFromContext(r *http.Request) string {
+	ws, ok := r.Context().Value(pctx.TenantIDActiveKey).(string)
 	if !ok {
 		return ""
 	}

@@ -2,7 +2,7 @@
 -- Replaces: routers/lambda/recent.ts: queryRecent
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -30,12 +30,12 @@ WITH latest_topic_message AS (
         m.topic_id,
         MAX(m.updated_at) AS message_at
     FROM   messages m
-    {{- if isSet "workspaceId" }}
-    WHERE  m.workspace_id = {{ sqlVal "workspaceId" }}
-    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-    WHERE  {{ workspaceScopeIn "m.workspace_id" }}
+    {{- if isSet "tenantId" }}
+    WHERE  m.tenant_id = {{ sqlVal "tenantId" }}
+    {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+    WHERE  {{ tenantScopeIn "m.tenant_id" }}
     {{- else }}
-    WHERE  m.user_id = {{ sqlVal "userId" }} AND m.workspace_id IS NULL
+    WHERE  m.user_id = {{ sqlVal "userId" }} AND m.tenant_id IS NULL
     {{- end }}
     GROUP  BY m.topic_id
 ),
@@ -52,12 +52,12 @@ topic_arm AS (
     FROM   topics t
     LEFT JOIN agents a ON a.id = t.agent_id
     LEFT JOIN latest_topic_message ltm ON ltm.topic_id = t.id
-    {{- if isSet "workspaceId" }}
-    WHERE  t.workspace_id = {{ sqlVal "workspaceId" }}
-    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-    WHERE  {{ workspaceScopeIn "t.workspace_id" }}
+    {{- if isSet "tenantId" }}
+    WHERE  t.tenant_id = {{ sqlVal "tenantId" }}
+    {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+    WHERE  {{ tenantScopeIn "t.tenant_id" }}
     {{- else }}
-    WHERE  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
+    WHERE  t.user_id = {{ sqlVal "userId" }} AND t.tenant_id IS NULL
     {{- end }}
       AND  (
             t.group_id IS NOT NULL
@@ -77,12 +77,12 @@ document_arm AS (
         'document'::text AS type,
         d.updated_at
     FROM   documents d
-    {{- if isSet "workspaceId" }}
-    WHERE  d.workspace_id = {{ sqlVal "workspaceId" }}
-    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-    WHERE  {{ workspaceScopeIn "d.workspace_id" }}
+    {{- if isSet "tenantId" }}
+    WHERE  d.tenant_id = {{ sqlVal "tenantId" }}
+    {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+    WHERE  {{ tenantScopeIn "d.tenant_id" }}
     {{- else }}
-    WHERE  d.user_id = {{ sqlVal "userId" }} AND d.workspace_id IS NULL
+    WHERE  d.user_id = {{ sqlVal "userId" }} AND d.tenant_id IS NULL
     {{- end }}
       AND  d.source_type NOT IN ('agent', 'agent-signal', 'file', 'web')
       AND  d.knowledge_base_id IS NULL
@@ -99,12 +99,12 @@ task_arm AS (
         'task'::text  AS type,
         tk.updated_at
     FROM   tasks tk
-    {{- if isSet "workspaceId" }}
-    WHERE  tk.workspace_id = {{ sqlVal "workspaceId" }}
-    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-    WHERE  {{ workspaceScopeIn "tk.workspace_id" }}
+    {{- if isSet "tenantId" }}
+    WHERE  tk.tenant_id = {{ sqlVal "tenantId" }}
+    {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+    WHERE  {{ tenantScopeIn "tk.tenant_id" }}
     {{- else }}
-    WHERE  tk.created_by_user_id = {{ sqlVal "userId" }} AND tk.workspace_id IS NULL
+    WHERE  tk.created_by_user_id = {{ sqlVal "userId" }} AND tk.tenant_id IS NULL
     {{- end }}
       AND  tk.status NOT IN ('completed', 'canceled')
 )

@@ -8,7 +8,7 @@
 -- flag to include the document's current editorData as the first entry.
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -30,13 +30,13 @@ WITH history AS (
         dh.save_source        AS "saveSource",
         dh.saved_at           AS "savedAt",
         dh.user_id,
-        dh.workspace_id
+        dh.tenant_id
     FROM   document_histories dh
     WHERE  dh.document_id = {{ sqlVal "documentId" }}
-{{- if isSet "workspaceId" }}
-      AND dh.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+      AND dh.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-      AND dh.user_id = {{ sqlVal "userId" }} AND dh.workspace_id IS NULL
+      AND dh.user_id = {{ sqlVal "userId" }} AND dh.tenant_id IS NULL
 {{- end }}
 {{- if isSet "beforeSavedAt" }}
       AND (dh.saved_at, dh.id) < ({{ sqlVal "beforeSavedAt" }}::timestamptz, {{ sqlVal "beforeId" }})

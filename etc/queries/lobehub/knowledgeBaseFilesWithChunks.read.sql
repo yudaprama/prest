@@ -7,7 +7,7 @@
 -- async_tasks rows.
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -46,24 +46,24 @@ LEFT JOIN (
            COALESCE(SUM(LENGTH(c.text)), 0)::bigint AS total_tokens
     FROM   file_chunks fc
     JOIN   chunks c ON c.id = fc.chunk_id
-    {{- if isSet "workspaceId" }}
-    WHERE  fc.workspace_id = {{ sqlVal "workspaceId" }}
-    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-    WHERE  {{ workspaceScopeIn "fc.workspace_id" }}
+    {{- if isSet "tenantId" }}
+    WHERE  fc.tenant_id = {{ sqlVal "tenantId" }}
+    {{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+    WHERE  {{ tenantScopeIn "fc.tenant_id" }}
     {{- else }}
-    WHERE  fc.workspace_id IS NULL
+    WHERE  fc.tenant_id IS NULL
     {{- end }}
     GROUP  BY fc.file_id
 ) cstat ON cstat.file_id = f.id
-{{- if isSet "workspaceId" }}
-WHERE  kbf.workspace_id = {{ sqlVal "workspaceId" }}
-  AND  f.workspace_id   = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "kbf.workspace_id" }}
-  AND  {{ workspaceScopeIn "f.workspace_id" }}
+{{- if isSet "tenantId" }}
+WHERE  kbf.tenant_id = {{ sqlVal "tenantId" }}
+  AND  f.tenant_id   = {{ sqlVal "tenantId" }}
+{{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+WHERE  {{ tenantScopeIn "kbf.tenant_id" }}
+  AND  {{ tenantScopeIn "f.tenant_id" }}
 {{- else }}
-WHERE  kbf.user_id = {{ sqlVal "userId" }} AND kbf.workspace_id IS NULL
-  AND  f.user_id   = {{ sqlVal "userId" }} AND f.workspace_id   IS NULL
+WHERE  kbf.user_id = {{ sqlVal "userId" }} AND kbf.tenant_id IS NULL
+  AND  f.user_id   = {{ sqlVal "userId" }} AND f.tenant_id   IS NULL
 {{- end }}
 {{- if isSet "knowledgeBaseId" }}
   AND  kbf.knowledge_base_id = {{ sqlVal "knowledgeBaseId" }}

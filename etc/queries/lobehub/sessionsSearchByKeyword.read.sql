@@ -3,7 +3,7 @@
 --           (SessionModel.queryByKeyword → findSessionsByKeywords)
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — scope to one workspace)
+--               tenantId  (optional query param — scope to one workspace)
 
 --
 -- Query params:
@@ -48,10 +48,10 @@ SELECT
 FROM   sessions s
 JOIN   agents_to_sessions ats ON ats.session_id = s.id
 JOIN   agents a ON a.id = ats.agent_id
-{{- if isSet "workspaceId" }}
-WHERE  s.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+WHERE  s.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-WHERE  s.user_id = {{ sqlVal "userId" }} AND s.workspace_id IS NULL
+WHERE  s.user_id = {{ sqlVal "userId" }} AND s.tenant_id IS NULL
 {{- end }}
   AND  s.type = 'agent'
   AND  (

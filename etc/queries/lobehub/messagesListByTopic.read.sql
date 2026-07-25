@@ -2,7 +2,7 @@
 -- Replaces: routers/lambda/message.ts: getMessages
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -38,8 +38,8 @@ SELECT
     COALESCE(
         (SELECT json_agg(json_build_object('id', mt.id, 'from', mt."from", 'to', mt."to", 'content', mt.content))
          FROM   message_translates mt
-         {{- if isSet "workspaceId" }}
-         WHERE  mt.id = m.id AND mt.workspace_id = {{ sqlVal "workspaceId" }}
+         {{- if isSet "tenantId" }}
+         WHERE  mt.id = m.id AND mt.tenant_id = {{ sqlVal "tenantId" }}
          {{- else }}
          WHERE  mt.id = m.id
          {{- end }}),
@@ -48,8 +48,8 @@ SELECT
     COALESCE(
         (SELECT json_agg(json_build_object('id', mp.id, 'tool_call_id', mp.tool_call_id, 'type', mp.type, 'api_name', mp.api_name, 'identifier', mp.identifier, 'arguments', mp.arguments, 'state', mp.state, 'error', mp.error, 'intervention', mp.intervention))
          FROM   message_plugins mp
-         {{- if isSet "workspaceId" }}
-         WHERE  mp.id = m.id AND mp.workspace_id = {{ sqlVal "workspaceId" }}
+         {{- if isSet "tenantId" }}
+         WHERE  mp.id = m.id AND mp.tenant_id = {{ sqlVal "tenantId" }}
          {{- else }}
          WHERE  mp.id = m.id
          {{- end }}),
@@ -58,8 +58,8 @@ SELECT
     COALESCE(
         (SELECT json_agg(json_build_object('id', mtt.id, 'voice', mtt.voice, 'file_id', mtt.file_id, 'content_md5', mtt.content_md5))
          FROM   message_tts mtt
-         {{- if isSet "workspaceId" }}
-         WHERE  mtt.id = m.id AND mtt.workspace_id = {{ sqlVal "workspaceId" }}
+         {{- if isSet "tenantId" }}
+         WHERE  mtt.id = m.id AND mtt.tenant_id = {{ sqlVal "tenantId" }}
          {{- else }}
          WHERE  mtt.id = m.id
          {{- end }}),
@@ -73,10 +73,10 @@ SELECT
         '[]'::json
     ) AS files
 FROM   messages m
-{{- if isSet "workspaceId" }}
-WHERE  m.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+WHERE  m.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-WHERE  m.user_id = {{ sqlVal "userId" }} AND m.workspace_id IS NULL
+WHERE  m.user_id = {{ sqlVal "userId" }} AND m.tenant_id IS NULL
 {{- end }}
   AND  m.topic_id = {{ sqlVal "topicId" }}
 {{- if isSet "groupId" }}

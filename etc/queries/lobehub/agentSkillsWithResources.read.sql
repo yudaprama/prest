@@ -8,8 +8,8 @@
 -- resource entry.
 --
 -- Auth scope:   userId      (auto-injected from Kratos identity)
---               workspaceId (optional query param — if set, scope to workspace;
---                            else personal scope with workspace_id IS NULL)
+--               tenantId (optional query param — if set, scope to workspace;
+--                            else personal scope with tenant_id IS NULL)
 --
 -- Query params:
 --   source          (string, optional) — 'builtin' | 'market' | 'user'
@@ -33,7 +33,7 @@ SELECT
     {{- end }}
     s.zip_file_hash,
     s.user_id,
-    s.workspace_id,
+    s.tenant_id,
     s.created_at,
     s.updated_at,
     COALESCE(
@@ -53,10 +53,10 @@ SELECT
         '[]'::json
     ) AS resources
 FROM   agent_skills s
-{{- if isSet "workspaceId" }}
-WHERE  s.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+WHERE  s.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-WHERE  s.user_id = {{ sqlVal "userId" }} AND s.workspace_id IS NULL
+WHERE  s.user_id = {{ sqlVal "userId" }} AND s.tenant_id IS NULL
 {{- end }}
 {{- if isSet "source" }}
   AND  s.source = {{ sqlVal "source" }}

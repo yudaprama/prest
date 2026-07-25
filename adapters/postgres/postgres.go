@@ -220,11 +220,11 @@ func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID in
 
 	pid := initialPlaceholderID
 
-	// Active-workspace ("compat") mode resolves once, up front. A table
-	// configured under [[auth.workspace_compat_filters]] gets
-	// buildWorkspaceWhere semantics (below) instead of the plain user_id
+	// Active-tenant ("compat") mode resolves once, up front. A table
+	// configured under [[auth.tenant_compat_filters]] gets
+	// buildTenantWhere semantics (below) instead of the plain user_id
 	// filter, so the user_id block is skipped for it.
-	compat := ResolveWorkspaceCompat(r)
+	compat := ResolveTenantCompat(r)
 
 	// Auto-inject user_id tenant filter from the auth context.
 	// Resolves the column via the configured `[[auth.user_id_filters]]`
@@ -242,18 +242,18 @@ func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID in
 		}
 	}
 
-	// Active-workspace ("compat") filter — mirrors LobeHub buildWorkspaceWhere.
-	// The active workspace id comes from pctx.WorkspaceIDActiveKey (set by
-	// WorkspaceActiveMiddleware from the X-Workspace-Id header the frontend
+	// Active-tenant ("compat") filter — mirrors LobeHub buildTenantWhere.
+	// The active tenant id comes from pctx.TenantIDActiveKey (set by
+	// TenantActiveMiddleware from the X-Tenant-Id header the frontend
 	// emits after Oathkeeper authz). No authz call happens on this read path.
-	//   - active workspace set: WHERE <ws_col> = $ws
+	//   - active tenant set: WHERE <ws_col> = $ws
 	//   - personal mode:        WHERE <user_col> = $uid AND <ws_col> IS NULL
 	// Fail-open on empty identity (matches the plain user_id filter) so
 	// public endpoints keep working.
 	if compat != nil {
-		wsCol, _ := ident.Quote(compat.WorkspaceColumn)
+		wsCol, _ := ident.Quote(compat.TenantColumn)
 		usrCol, _ := ident.Quote(compat.UserColumn)
-		if ws := WorkspaceIDActiveFromContext(r); ws != "" {
+		if ws := TenantIDActiveFromContext(r); ws != "" {
 			whereKey = append(whereKey, fmt.Sprintf(`%s = $%d`, wsCol, pid))
 			whereValues = append(whereValues, ws)
 			pid++
@@ -742,15 +742,15 @@ func (adapter *Postgres) ParseInsertRequest(r *http.Request) (colsName string, c
 	// filters (WhereByRequest). Skipped (no-op) when no identity is present or the
 	// table is in neither filter set — matching the read-side fail-open behavior.
 	if uid := UserIDFromContext(r); uid != "" {
-		if compat := ResolveWorkspaceCompat(r); compat != nil {
-			// Workspace-compat table: mirror buildWorkspaceWhere — owner is the
-			// identity; workspace is the active-workspace header, or NULL for
-			// personal scope (matches `user_id = $uid AND workspace_id IS NULL`).
+		if compat := ResolveTenantCompat(r); compat != nil {
+			// Tenant-compat table: mirror buildTenantWhere — owner is the
+			// identity; tenant is the active-tenant header, or NULL for
+			// personal scope (matches `user_id = $uid AND tenant_id IS NULL`).
 			body[compat.UserColumn] = uid
-			if ws := WorkspaceIDActiveFromContext(r); ws != "" {
-				body[compat.WorkspaceColumn] = ws
+			if ws := TenantIDActiveFromContext(r); ws != "" {
+				body[compat.TenantColumn] = ws
 			} else {
-				body[compat.WorkspaceColumn] = nil
+				body[compat.TenantColumn] = nil
 			}
 		} else if col := ResolveUserIDColumn(r); col != "" {
 			// Plain user_id-scoped table.

@@ -5,7 +5,7 @@
 --           `agents.user_id` via a JOIN.
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -26,12 +26,12 @@ SELECT
     a.slug   AS agent_slug
 FROM   agent_shares s
 JOIN   agents a ON a.id = s.agent_id
-{{- if isSet "workspaceId" }}
-WHERE  a.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "a.workspace_id" }}
+{{- if isSet "tenantId" }}
+WHERE  a.tenant_id = {{ sqlVal "tenantId" }}
+{{- else if eq (defaultOrValue "tenantScope" "") "all" }}
+WHERE  {{ tenantScopeIn "a.tenant_id" }}
 {{- else }}
-WHERE  a.user_id = {{ sqlVal "userId" }} AND a.workspace_id IS NULL
+WHERE  a.user_id = {{ sqlVal "userId" }} AND a.tenant_id IS NULL
 {{- end }}
 {{- if isSet "visibility" }}
   AND  s.visibility = {{ sqlVal "visibility" }}

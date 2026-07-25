@@ -2,7 +2,7 @@
 -- Replaces: routers/lambda/message.ts: searchMessages (was BM25 via paradedb)
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
---               workspaceId  (optional query param — if set, scope to workspace)
+--               tenantId  (optional query param — if set, scope to workspace)
 
 --
 -- Query params:
@@ -39,10 +39,10 @@ SELECT
 FROM messages m, q
 WHERE q.tsq <> ''                        -- empty query → no rows (safety)
   AND m.messages_tsv @@ q.tsq
-{{- if isSet "workspaceId" }}
-  AND  m.workspace_id = {{ sqlVal "workspaceId" }}
+{{- if isSet "tenantId" }}
+  AND  m.tenant_id = {{ sqlVal "tenantId" }}
 {{- else }}
-  AND  m.user_id = {{ sqlVal "userId" }} AND m.workspace_id IS NULL
+  AND  m.user_id = {{ sqlVal "userId" }} AND m.tenant_id IS NULL
 {{- end }}
 {{- if isSet "topicId" }}
   AND  m.topic_id = {{ sqlVal "topicId" }}
