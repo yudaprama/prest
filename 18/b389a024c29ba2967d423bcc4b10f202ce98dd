@@ -1,0 +1,19 @@
+router/router.go
+  s_0359c8929684a4::t_14bac1afdab569 36-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "18b389a024c29ba2967d423bcc4b10f202ce98dd",
+  "prompts": {},
+  "sessions": {
+    "s_0359c8929684a4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0686cf53fffe1cTG82MC2hkLSg",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
