@@ -1,0 +1,23 @@
+config/config.go
+  s_284f15e41b2899::t_f3b982d9d57b18 60,68
+middlewares/workspaceactive.go
+  s_284f15e41b2899::t_dee8fbcd31256d 14-18
+adapters/postgres/postgres.go
+  s_284f15e41b2899::t_1c3b2d1b32e5e5 247-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "b42ceac95fa67b4e0c0a2defe68da49638fcfa2a",
+  "prompts": {},
+  "sessions": {
+    "s_284f15e41b2899": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_066eb327afferY7zZNBbA5L65K",
+        "model": "kawai-pro-max"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
