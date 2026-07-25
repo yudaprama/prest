@@ -1,0 +1,53 @@
+etc/queries/lobehub/knowledgeBaseFilesWithChunks.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 12
+etc/queries/lobehub/documentsWithHistory.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 13
+etc/queries/lobehub/topicsSearchFts.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 7
+etc/queries/lobehub/verifyResultsWithRubric.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 13
+etc/queries/lobehub/sessionsSearchByKeyword.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 7
+etc/queries/lobehub/recentByUser.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 7
+etc/queries/lobehub/sessionsListGrouped.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 7
+etc/queries/lobehub/messagesListByTopic.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 7
+etc/queries/lobehub/usageAggregateByDay.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 12
+controllers/account.go
+  s_284f15e41b2899::t_ab623febbaa081 10-15,22,24
+  s_284f15e41b2899::t_7e13b78e386be4 113
+context/keys.go
+  s_284f15e41b2899::t_22277d59de7e4f 22
+  s_284f15e41b2899::t_7cc42586958281 29
+etc/queries/lobehub/agentSharesByUser.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 10
+etc/queries/lobehub/knowledgeItemsList.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 12
+controllers/utils.go
+  s_284f15e41b2899::t_1642aa77c390cb 1-43
+etc/queries/lobehub/knowledgeItemStatuses.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 12
+etc/queries/lobehub/threadMessages.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 7
+etc/queries/lobehub/messagesSearchFts.read.sql
+  s_284f15e41b2899::t_3a0714e8d06b97 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "75c3e4f33c73f3fb2b6f14a62e69421e8d3d2904",
+  "prompts": {},
+  "sessions": {
+    "s_284f15e41b2899": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_066eb327afferY7zZNBbA5L65K",
+        "model": "kawai-pro-max"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
