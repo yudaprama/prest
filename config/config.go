@@ -57,7 +57,7 @@ type UserFilterConfig struct {
 // a workspace-capable content table. It mirrors LobeHub's buildWorkspaceWhere
 // exactly, replacing the plain user_id filter on that table:
 //   - active workspace present (WorkspaceIDActiveKey non-empty, from the
-//     X-Workspace-Id header set by the BFF after its Keto Check):
+//     X-Workspace-Id header set by the frontend after Oathkeeper authz):
 //     WHERE <workspace_column> = $ws
 //   - personal mode (no active workspace):
 //     WHERE <user_column> = $uid AND <workspace_column> IS NULL
@@ -65,7 +65,7 @@ type UserFilterConfig struct {
 // A table MUST NOT appear in both [[auth.user_id_filters]] and
 // [[auth.workspace_compat_filters]]; Parse() rejects the overlap so each
 // table gets exactly one filter. Unlike the union-membership workspace
-// filter, this mode makes NO Keto calls on the read path — the active
+// filter, this mode makes no authz calls on the read path — the active
 // workspace is a trusted, pre-authorized header (same trust model as
 // X-User-Id).
 type WorkspaceCompatConfig struct {

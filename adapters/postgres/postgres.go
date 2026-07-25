@@ -244,8 +244,8 @@ func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID in
 
 	// Active-workspace ("compat") filter — mirrors LobeHub buildWorkspaceWhere.
 	// The active workspace id comes from pctx.WorkspaceIDActiveKey (set by
-	// WorkspaceActiveMiddleware from the X-Workspace-Id header the BFF emits
-	// after its own Keto Check). No Keto call happens on this read path.
+	// WorkspaceActiveMiddleware from the X-Workspace-Id header the frontend
+	// emits after Oathkeeper authz). No authz call happens on this read path.
 	//   - active workspace set: WHERE <ws_col> = $ws
 	//   - personal mode:        WHERE <user_col> = $uid AND <ws_col> IS NULL
 	// Fail-open on empty identity (matches the plain user_id filter) so
