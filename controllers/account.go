@@ -7,8 +7,6 @@ import (
 	"os"
 )
 
-const roleOwner = "owner"
-
 // Account self-service closure. Cookie-authed via the Oathkeeper edge,
 // which injects X-User-Id authoritatively — so a caller can only ever close
 // their OWN account. The request body is intentionally empty; the user id
@@ -16,12 +14,9 @@ const roleOwner = "owner"
 
 // AccountDeleteHandler: POST /v1/account/delete — irreversibly closes the
 // caller's account. Purges, in order:
-//  1. Kawai content by user_id (personal-scope rows + their shared-workspace
-//     rows). Leaf tables first; sessions cascades its messages/topics.
-//  2. Workspaces owned by the caller (FK cascade clears any remaining members'
-//     content in those workspaces).
-//  3. workspace_members rows (membership in workspaces the caller did not own).
-//  4. Kratos identity (loopback admin :4434) — LAST. Idempotent (404 = already
+//  1. Kawai content by user_id (personal-scope rows + workspace-scoped rows).
+//     Leaf tables first; sessions cascades its messages/topics.
+//  2. Kratos identity (loopback admin :4434) — LAST. Idempotent (404 = already
 //     gone) so a retry after a partial failure is safe; deleting the identity
 //     also kills all Kratos sessions server-side, invalidating the cookie.
 //
@@ -29,6 +24,10 @@ const roleOwner = "owner"
 // every own key first via /v2alpha1/self/issuedApiKeys/:revoke before calling
 // this. Any orphaned key row is unusable once the Kratos identity is gone
 // (ext_authz → Talos verify resolves the actor against Kratos).
+//
+// Workspace/membership cleanup is handled by the frontend before this call:
+//   - For owned workspaces: DELETE /.hatchet/api/v1/tenants/{id}
+//   - Leaving other workspaces: DELETE /.hatchet/api/v1/tenants/{id}/members/{m}
 func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -45,35 +44,6 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-
-	// Gather the caller's workspace memberships from the membership mirror
-	// (workspace_members), kept in sync with Keto on every create/member/leave
-	// op. We use the DB rather than Keto ListWorkspacesForUser so this works even
-	// when Keto is disabled — and, importantly, we do NOT read workspaces.owner_id,
-	// which may be absent on older migrated schemas; the role on
-	// workspace_members is the ownership source of truth.
-	memberRows, err := db.QueryContext(ctx,
-		`SELECT workspace_id, role FROM workspace_members WHERE user_id = $1`, userID)
-	if err != nil {
-		slog.Error("account delete: list memberships", "user", userID, "err", err)
-		writeJSONError(w, http.StatusBadGateway, "could not purge account data")
-		return
-	}
-	var ownedIDs, allIDs []string
-	for memberRows.Next() {
-		var id, role string
-		if err := memberRows.Scan(&id, &role); err != nil {
-			memberRows.Close()
-			slog.Error("account delete: scan membership", "err", err)
-			writeJSONError(w, http.StatusBadGateway, "could not purge account data")
-			return
-		}
-		allIDs = append(allIDs, id)
-		if role == roleOwner {
-			ownedIDs = append(ownedIDs, id)
-		}
-	}
-	memberRows.Close()
 
 	// 1) Content by user_id. Order matters for FK safety: messages/topics reference
 	// sessions (cascade), so delete the children first; sessions last.
@@ -92,25 +62,7 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 2) Owned workspaces. Deleting the row FK-cascades its workspace_members +
-	// any leftover scoped content (same semantics as DELETE /v1/workspaces).
-	for _, id := range ownedIDs {
-		if _, err := db.ExecContext(ctx, `DELETE FROM workspaces WHERE id = $1`, id); err != nil {
-			slog.Error("account delete: delete owned workspace", "workspace", id, "user", userID, "err", err)
-			writeJSONError(w, http.StatusBadGateway, "could not purge account data")
-			return
-		}
-	}
-
-	// 3) Remaining membership rows in workspaces the caller did NOT own.
-	if _, err := db.ExecContext(ctx,
-		`DELETE FROM workspace_members WHERE user_id = $1`, userID); err != nil {
-		slog.Error("account delete: delete memberships", "user", userID, "err", err)
-		writeJSONError(w, http.StatusBadGateway, "could not purge account data")
-		return
-	}
-
-	// 4) Kratos identity (loopback admin). Done last; idempotent. The base URL is
+	// 2) Kratos identity (loopback admin). Done last; idempotent. The base URL is
 	// loopback-only and relies on network isolation (no token), matching how the
 	// bootstrap webhook reaches pREST.
 	kratosAdmin := os.Getenv("KRATOS_ADMIN_URL")
@@ -138,7 +90,6 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.Info("account deleted", "user", userID,
-		"owned", len(ownedIDs), "member_of", len(allIDs))
+	slog.Info("account deleted", "user", userID)
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
 }
