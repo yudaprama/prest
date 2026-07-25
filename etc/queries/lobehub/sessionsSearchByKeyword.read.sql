@@ -4,7 +4,7 @@
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
 --               workspaceId  (optional query param — scope to one workspace)
---               workspaceScope (optional "all" — cross-workspace via Keto)
+--               workspaceScope (optional "all" — cross-workspace)
 --
 -- Query params:
 --   keyword  (string, required) — matched case-insensitively against the

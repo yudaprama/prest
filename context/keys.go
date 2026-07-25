@@ -19,15 +19,14 @@ const (
 	// WorkspaceIDActiveKey; union membership via WorkspaceIDsKey.
 	WorkspaceIDKey
 	// WorkspaceIDsKey holds the full list of workspace IDs the caller
-	// is a member of, resolved once per request by
-	// WorkspaceMembershipResolver (Keto ListObjects, cached). Used by
+	// is a member of, resolved once per request. Used by
 	// the postgres adapter to inject `WHERE workspace_id IN (...)` on
 	// Tier 1 workspace tables, and by the `workspaceScopeIn` template
 	// helper for cross-workspace Tier 2 reads.
 	WorkspaceIDsKey
 	// WorkspaceIDActiveKey holds the single active workspace id for the
 	// request, sourced from the X-Workspace-Id header. Oathkeeper sets
-	// this header authoritatively (after its own Keto Check); empty =
+	// this header authoritatively; empty =
 	// personal mode. Used exclusively by the "compat" filter mode
 	// (buildWorkspaceWhere semantics) on workspace-capable content
 	// tables — distinct from WorkspaceIDsKey (union membership) and

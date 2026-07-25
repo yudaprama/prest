@@ -7,24 +7,21 @@ import (
 	"os"
 )
 
-// Account self-service closure. Lives here (same package as workspaces.go) so it
-// reuses extractUserID / ketoClient / deleteAllTuplesForObject / deleteSubjectTuples
-// / ListWorkspacesForUser. Cookie-authed via the Oathkeeper edge
-// (prest-workspaces-v1 rule, widened to /v1/account.*), which injects X-User-Id
-// authoritatively — so a caller can only ever close their OWN account. The
-// request body is intentionally empty; the user id comes from the edge, never
-// the client.
+const roleOwner = "owner"
+
+// Account self-service closure. Cookie-authed via the Oathkeeper edge,
+// which injects X-User-Id authoritatively — so a caller can only ever close
+// their OWN account. The request body is intentionally empty; the user id
+// comes from the edge, never the client.
 
 // AccountDeleteHandler: POST /v1/account/delete — irreversibly closes the
 // caller's account. Purges, in order:
 //  1. Kawai content by user_id (personal-scope rows + their shared-workspace
 //     rows). Leaf tables first; sessions cascades its messages/topics.
 //  2. Workspaces owned by the caller (FK cascade clears any remaining members'
-//     content in those workspaces — same semantics as DELETE /v1/workspaces).
+//     content in those workspaces).
 //  3. workspace_members rows (membership in workspaces the caller did not own).
-//  4. Keto tuples: wipe every tuple on owned workspaces + remove the subject
-//     from every workspace they belonged to.
-//  5. Kratos identity (loopback admin :4434) — LAST. Idempotent (404 = already
+//  4. Kratos identity (loopback admin :4434) — LAST. Idempotent (404 = already
 //     gone) so a retry after a partial failure is safe; deleting the identity
 //     also kills all Kratos sessions server-side, invalidating the cookie.
 //
@@ -47,7 +44,6 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
 		return
 	}
-	kc := ketoClient()
 	ctx := r.Context()
 
 	// Gather the caller's workspace memberships from the membership mirror
@@ -114,22 +110,7 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4) Keto cleanup. Best-effort per tuple (logged, non-fatal) so a Keto hiccup
-	// never blocks a closure that has already purged Postgres + the identity.
-	if kc.Enabled() {
-		for _, id := range ownedIDs {
-			if err := deleteAllTuplesForObject(ctx, kc, id); err != nil {
-				slog.Error("account delete: keto object cleanup", "workspace", id, "err", err)
-			}
-		}
-		for _, id := range allIDs {
-			if err := deleteSubjectTuples(ctx, kc, id, userID); err != nil {
-				slog.Error("account delete: keto subject cleanup", "workspace", id, "err", err)
-			}
-		}
-	}
-
-	// 5) Kratos identity (loopback admin). Done last; idempotent. The base URL is
+	// 4) Kratos identity (loopback admin). Done last; idempotent. The base URL is
 	// loopback-only and relies on network isolation (no token), matching how the
 	// bootstrap webhook reaches pREST.
 	kratosAdmin := os.Getenv("KRATOS_ADMIN_URL")

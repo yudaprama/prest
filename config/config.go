@@ -184,10 +184,6 @@ type Prest struct {
 	PluginPath           string
 	PluginMiddlewareList []PluginMiddleware
 	Logger               *slog.Logger
-	// KetoReadURL is the Ory Keto Read API endpoint (default http://localhost:4466).
-	KetoReadURL  string
-	KetoWriteURL string
-	KetoEnabled  bool
 	// WorkspaceFiltersEnabled controls whether the workspace membership
 	// resolver and IN-clause filters are active. Default false (Phase 1
 	// only). When true, the four workspace tables are auto-scoped by
@@ -337,9 +333,6 @@ func viperCfg() {
 	viper.SetDefault("context", "/")
 	viper.SetDefault("pluginpath", "./lib")
 	viper.SetDefault("pluginmiddlewarelist", []PluginMiddleware{})
-	viper.SetDefault("keto.readurl", "http://localhost:4466")
-	viper.SetDefault("keto.writeurl", "http://localhost:4467")
-	viper.SetDefault("keto.enabled", false)
 	viper.SetDefault("auth.workspace_filters_enabled", false)
 	viper.SetDefault("expose.enabled", false)
 	viper.SetDefault("expose.tables", true)
@@ -469,9 +462,6 @@ func Parse(cfg *Prest) {
 		slog.Error("could not unmarshal access plugin middleware list", "err", err)
 	}
 	cfg.PluginMiddlewareList = pluginMiddlewareConfig
-	cfg.KetoReadURL = viper.GetString("keto.readurl")
-	cfg.KetoWriteURL = viper.GetString("keto.writeurl")
-	cfg.KetoEnabled = viper.GetBool("keto.enabled")
 }
 
 // parseDatabaseURL tries to get from URL the DB configs
