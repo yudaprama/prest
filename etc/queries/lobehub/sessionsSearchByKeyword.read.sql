@@ -4,7 +4,7 @@
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
 --               workspaceId  (optional query param — scope to one workspace)
---               workspaceScope (optional "all" — cross-workspace)
+
 --
 -- Query params:
 --   keyword  (string, required) — matched case-insensitively against the
@@ -50,8 +50,6 @@ JOIN   agents_to_sessions ats ON ats.session_id = s.id
 JOIN   agents a ON a.id = ats.agent_id
 {{- if isSet "workspaceId" }}
 WHERE  s.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "s.workspace_id" }}
 {{- else }}
 WHERE  s.user_id = {{ sqlVal "userId" }} AND s.workspace_id IS NULL
 {{- end }}

@@ -3,9 +3,7 @@
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
 --               workspaceId  (optional query param — if set, scope to workspace)
---               workspaceScope (optional "all" — cross-workspace mode;
---                               resolved via workspace membership
---                               scope with workspace_id IS NULL)
+
 --
 -- Query params:
 --   topicId  (string, required)
@@ -42,8 +40,6 @@ SELECT
          FROM   message_translates mt
          {{- if isSet "workspaceId" }}
          WHERE  mt.id = m.id AND mt.workspace_id = {{ sqlVal "workspaceId" }}
-         {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-         WHERE  mt.id = m.id AND {{ workspaceScopeIn "mt.workspace_id" }}
          {{- else }}
          WHERE  mt.id = m.id
          {{- end }}),
@@ -54,8 +50,6 @@ SELECT
          FROM   message_plugins mp
          {{- if isSet "workspaceId" }}
          WHERE  mp.id = m.id AND mp.workspace_id = {{ sqlVal "workspaceId" }}
-         {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-         WHERE  mp.id = m.id AND {{ workspaceScopeIn "mp.workspace_id" }}
          {{- else }}
          WHERE  mp.id = m.id
          {{- end }}),
@@ -66,8 +60,6 @@ SELECT
          FROM   message_tts mtt
          {{- if isSet "workspaceId" }}
          WHERE  mtt.id = m.id AND mtt.workspace_id = {{ sqlVal "workspaceId" }}
-         {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-         WHERE  mtt.id = m.id AND {{ workspaceScopeIn "mtt.workspace_id" }}
          {{- else }}
          WHERE  mtt.id = m.id
          {{- end }}),
@@ -83,8 +75,6 @@ SELECT
 FROM   messages m
 {{- if isSet "workspaceId" }}
 WHERE  m.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "m.workspace_id" }}
 {{- else }}
 WHERE  m.user_id = {{ sqlVal "userId" }} AND m.workspace_id IS NULL
 {{- end }}

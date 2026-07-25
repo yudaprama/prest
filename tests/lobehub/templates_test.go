@@ -20,7 +20,6 @@ import (
 const (
 	scopePersonal        = "personal"
 	scopeSingleWorkspace = "single_workspace"
-	scopeCrossWorkspace  = "cross_workspace"
 )
 
 // TestLobehubTemplatesParse validates every `.read.sql` under
@@ -42,9 +41,7 @@ func TestLobehubTemplatesParse(t *testing.T) {
 		t.Run("workspace/"+name, func(t *testing.T) {
 			executeLobehubScript(t, name, testTemplateData(scopeSingleWorkspace))
 		})
-		t.Run("cross-workspace/"+name, func(t *testing.T) {
-			executeLobehubScript(t, name, testTemplateData(scopeCrossWorkspace))
-		})
+
 	}
 }
 
@@ -200,8 +197,6 @@ func renderScript(t *testing.T, name string, scope string) string {
 //
 //   - scopePersonal:        user_id filter only
 //   - scopeSingleWorkspace: ?workspaceId=X path (single workspace)
-//   - scopeCrossWorkspace:  ?workspaceScope=all path (cross-workspace
-//                           membership via the workspaceScopeIn helper)
 func testTemplateData(scope string) map[string]interface{} {
 	data := map[string]interface{}{
 		"userId":          "00000000-0000-0000-0000-000000000001",
@@ -234,14 +229,8 @@ func testTemplateData(scope string) map[string]interface{} {
 		"page":            "1",
 		"size":            "20",
 	}
-	switch scope {
-	case scopeSingleWorkspace:
+	if scope == scopeSingleWorkspace {
 		data["workspaceId"] = "00000000-0000-0000-0000-00000000aabb"
-	case scopeCrossWorkspace:
-		// defaultOrValue reads this and falls back to "all".
-		data["workspaceScope"] = "all"
-		// workspaceScopeIn reads this for the IN-clause.
-		data["workspaceIds"] = []string{"ws-a", "ws-b", "ws-c"}
 	}
 	return data
 }

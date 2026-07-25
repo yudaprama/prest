@@ -53,18 +53,6 @@ type UserFilterConfig struct {
 	Column   string `mapstructure:"column"`
 }
 
-// WorkspaceFilterConfig declares a tenant filter for workspace tables.
-// pREST auto-injects `WHERE <column> IN (<user_workspace_list>)` for
-// every read/write against the configured table. The list comes from
-// the request context under `prest/context.WorkspaceIDsKey`, which is
-// populated by the WorkspaceMembershipResolver middleware.
-type WorkspaceFilterConfig struct {
-	Database string `mapstructure:"database"`
-	Schema   string `mapstructure:"schema"`
-	Table    string `mapstructure:"table"`
-	Column   string `mapstructure:"column"`
-}
-
 // WorkspaceCompatConfig declares the active-workspace ("compat") filter for
 // a workspace-capable content table. It mirrors LobeHub's buildWorkspaceWhere
 // exactly, replacing the plain user_id filter on that table:
@@ -138,7 +126,6 @@ type Prest struct {
 	AuthType             string
 	UserIDHeader         string
 	UserIDFilters         []UserFilterConfig
-	WorkspaceIDFilters    []WorkspaceFilterConfig
 	HTTPHost              string // HTTPHost Declare which http address the PREST used
 	HTTPPort             int    // HTTPPort Declare which http port the PREST used
 	HTTPTimeout          int
@@ -184,11 +171,6 @@ type Prest struct {
 	PluginPath           string
 	PluginMiddlewareList []PluginMiddleware
 	Logger               *slog.Logger
-	// WorkspaceFiltersEnabled controls whether the workspace membership
-	// resolver and IN-clause filters are active. Default false (Phase 1
-	// only). When true, the four workspace tables are auto-scoped by
-	// WorkspaceIDsKey.
-	WorkspaceFiltersEnabled bool
 	// WorkspaceCompatFilters are the active-workspace ("compat") entries.
 	// Each listed table gets buildWorkspaceWhere semantics instead of the
 	// plain user_id filter. Inert until the list is non-empty.
@@ -716,12 +698,6 @@ func parseAuthConfig(cfg *Prest) {
 	if err := viper.UnmarshalKey("auth.user_id_filters", &userFilters); err == nil {
 		cfg.UserIDFilters = userFilters
 	}
-
-	var workspaceFilters []WorkspaceFilterConfig
-	if err := viper.UnmarshalKey("auth.workspace_id_filters", &workspaceFilters); err == nil {
-		cfg.WorkspaceIDFilters = workspaceFilters
-	}
-	cfg.WorkspaceFiltersEnabled = viper.GetBool("auth.workspace_filters_enabled")
 
 	var compatFilters []WorkspaceCompatConfig
 	if err := viper.UnmarshalKey("auth.workspace_compat_filters", &compatFilters); err == nil {

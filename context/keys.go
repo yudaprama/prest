@@ -16,14 +16,8 @@ const (
 	// empty) and kept only because controllers/sql.go still reads it; it
 	// is harmlessly empty unless repopulated from the X-Workspace-Id
 	// header in a future change. Active-workspace scoping now flows via
-	// WorkspaceIDActiveKey; union membership via WorkspaceIDsKey.
+	// WorkspaceIDActiveKey.
 	WorkspaceIDKey
-	// WorkspaceIDsKey holds the full list of workspace IDs the caller
-	// is a member of, resolved once per request. Used by
-	// the postgres adapter to inject `WHERE workspace_id IN (...)` on
-	// Tier 1 workspace tables, and by the `workspaceScopeIn` template
-	// helper for cross-workspace Tier 2 reads.
-	WorkspaceIDsKey
 	// WorkspaceIDActiveKey holds the single active workspace id for the
 	// request, sourced from the X-Workspace-Id header. Oathkeeper sets
 	// this header authoritatively; empty =

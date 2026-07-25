@@ -8,9 +8,7 @@
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
 --               workspaceId  (optional query param — if set, scope to workspace)
---               workspaceScope (optional "all" — cross-workspace mode;
---                               resolved via workspace membership
---                               scope with workspace_id IS NULL)
+
 --
 -- Query params:
 --   ids (string, required) — comma-separated file IDs
@@ -31,8 +29,6 @@ LEFT JOIN (
     FROM   file_chunks fc
     {{- if isSet "workspaceId" }}
     WHERE  fc.workspace_id = {{ sqlVal "workspaceId" }}
-    {{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-    WHERE  {{ workspaceScopeIn "fc.workspace_id" }}
     {{- else }}
     WHERE  fc.workspace_id IS NULL
     {{- end }}
@@ -40,8 +36,6 @@ LEFT JOIN (
 ) cc ON cc.file_id = f.id
 {{- if isSet "workspaceId" }}
 WHERE  f.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-WHERE  {{ workspaceScopeIn "f.workspace_id" }}
 {{- else }}
 WHERE  f.user_id = {{ sqlVal "userId" }} AND f.workspace_id IS NULL
 {{- end }}

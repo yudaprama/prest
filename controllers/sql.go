@@ -86,9 +86,6 @@ func extractContextValues(rq *http.Request, templateData map[string]interface{})
 	if id, ok := rq.Context().Value(pctx.WorkspaceIDKey).(string); ok && id != "" {
 		templateData["workspaceId"] = id
 	}
-	if ids, ok := rq.Context().Value(pctx.WorkspaceIDsKey).([]string); ok && len(ids) > 0 {
-		templateData["workspaceIds"] = ids
-	}
 }
 
 // extractHeaders gets from the given request the headers and populate the provided templateData accordingly.

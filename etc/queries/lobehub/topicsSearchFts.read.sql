@@ -3,9 +3,7 @@
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
 --               workspaceId  (optional query param — if set, scope to workspace)
---               workspaceScope (optional "all" — cross-workspace mode;
---                               resolved via workspace membership
---                               scope with workspace_id IS NULL)
+
 --
 -- Query params:
 --   q          (string, required) — search text
@@ -41,8 +39,6 @@ WHERE q.tsq <> ''
   AND t.topics_tsv @@ q.tsq
 {{- if isSet "workspaceId" }}
   AND  t.workspace_id = {{ sqlVal "workspaceId" }}
-{{- else if eq (defaultOrValue "workspaceScope" "") "all" }}
-  AND  {{ workspaceScopeIn "t.workspace_id" }}
 {{- else }}
   AND  t.user_id = {{ sqlVal "userId" }} AND t.workspace_id IS NULL
 {{- end }}

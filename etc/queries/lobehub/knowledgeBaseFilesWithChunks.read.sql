@@ -8,9 +8,7 @@
 --
 -- Auth scope:   userId       (auto-injected from Kratos identity)
 --               workspaceId  (optional query param — if set, scope to workspace)
---               workspaceScope (optional "all" — cross-workspace mode;
---                               resolved via workspace membership
---                               scope with workspace_id IS NULL)
+
 --
 -- Query params:
 --   knowledgeBaseId (string, optional) — filter to one KB; if omitted,
