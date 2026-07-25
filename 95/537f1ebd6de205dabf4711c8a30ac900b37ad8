@@ -1,0 +1,61 @@
+context/keys.go
+  s_9c636f0cdca3a7::t_97927fbf2b854d 19
+etc/queries/lobehub/topicsSearchFts.read.sql
+  s_9c636f0cdca3a7::t_dd8c8a9367c6bb 6
+etc/queries/lobehub/knowledgeItemsList.read.sql
+  s_9c636f0cdca3a7::t_58cdae077365fc 11
+etc/queries/lobehub/sessionsListGrouped.read.sql
+  s_9c636f0cdca3a7::t_03a4124ad4e4e8 6
+etc/queries/lobehub/recentByUser.read.sql
+  s_9c636f0cdca3a7::t_0d0bf1ee13009e 6
+etc/queries/lobehub/usageAggregateByDay.read.sql
+  s_9c636f0cdca3a7::t_ad81f26a1dceca 11
+etc/queries/lobehub/knowledgeItemStatuses.read.sql
+  s_9c636f0cdca3a7::t_0f9a2629c5c53b 11
+etc/queries/lobehub/messagesListByTopic.read.sql
+  s_9c636f0cdca3a7::t_4b2fabf16bd5ac 6
+tests/lobehub/templates_test.go
+  s_9c636f0cdca3a7::t_cf4b0fab69db11 44
+  s_9c636f0cdca3a7::t_f861da81a37200 232
+etc/queries/lobehub/verifyResultsWithRubric.read.sql
+  s_9c636f0cdca3a7::t_475c78a3cff328 12
+etc/queries/lobehub/knowledgeBaseFilesWithChunks.read.sql
+  s_9c636f0cdca3a7::t_b35e765ae317d2 11
+etc/queries/lobehub/agentSharesByUser.read.sql
+  s_9c636f0cdca3a7::t_7fbcfab338bd01 9
+etc/queries/lobehub/messagesSearchFts.read.sql
+  s_9c636f0cdca3a7::t_8c8c806448443f 6
+etc/queries/lobehub/documentsWithHistory.read.sql
+  s_9c636f0cdca3a7::t_88a339e6f20d30 12
+etc/queries/lobehub/sessionsSearchByKeyword.read.sql
+  s_9c636f0cdca3a7::t_38f02c851e8400 7
+etc/queries/lobehub/threadMessages.read.sql
+  s_9c636f0cdca3a7::t_96ad4203111a06 6
+template/funcregistry.go
+  s_284f15e41b2899::t_de285295f31a77 32-33
+  s_284f15e41b2899::t_b95063b9d9d426 126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "95537f1ebd6de205dabf4711c8a30ac900b37ad8",
+  "prompts": {},
+  "sessions": {
+    "s_284f15e41b2899": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_066eb327afferY7zZNBbA5L65K",
+        "model": "kawai-pro-max"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    },
+    "s_9c636f0cdca3a7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_066b8bd02ffejMSgNyofH756qI",
+        "model": "kawai-pro-max"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
