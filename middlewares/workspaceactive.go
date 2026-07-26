@@ -12,7 +12,7 @@ import (
 // TenantActiveMiddleware copies the single active tenant id from the
 // configured request header (default "X-Tenant-Id") into
 // pctx.TenantIDActiveKey. The header is set by the frontend after Oathkeeper
-// authorizes the tenant (Hatchet POST /api/v1/authz/tenant), so its
+// authorizes the tenant (pREST POST /authz/workspace), so its
 // presence is the trusted signal that the caller is authorized for that
 // tenant. An absent or empty header means personal mode (no tenant
 // active). Used by the "compat" filter mode; makes no authz calls itself.

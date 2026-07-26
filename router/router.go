@@ -34,9 +34,33 @@ func GetRouter() *mux.Router {
 	crudRoutes := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
 	router.HandleFunc("/_health", controllers.WrappedHealthCheck(controllers.DefaultCheckList)).Methods("GET")
 	// Account self-service closure (purges Kawai data + Kratos identity).
-	// Membership/tenant/invite management moved to Hatchet — prest is now a
-	// pure data layer. Cookie-authed via the prest-tenants-v1 edge rule.
 	router.HandleFunc("/v1/account/delete", controllers.AccountDeleteHandler).Methods("POST")
+
+	// Workspace management (tenants + members + invites). Edge rule
+	// prest-tenants-v1 injects X-User-Id + X-User-Email; each handler
+	// enforces tenant-level authz.
+	router.HandleFunc("/v1/workspaces", controllers.TenantsListHandler).Methods("GET")
+	router.HandleFunc("/v1/workspaces", controllers.TenantsCreateHandler).Methods("POST")
+	router.HandleFunc("/v1/workspaces/invites/accept", controllers.TenantInviteAcceptHandler).Methods("POST")
+	router.HandleFunc("/v1/workspaces/{id}", controllers.TenantGetHandler).Methods("GET")
+	router.HandleFunc("/v1/workspaces/{id}", controllers.TenantRenameHandler).Methods("PATCH")
+	router.HandleFunc("/v1/workspaces/{id}", controllers.TenantDeleteHandler).Methods("DELETE")
+	router.HandleFunc("/v1/workspaces/{id}/members", controllers.TenantMembersHandler).Methods("GET")
+	router.HandleFunc("/v1/workspaces/{id}/members/{membershipId}", controllers.MemberUpdateRoleHandler).Methods("PATCH")
+	router.HandleFunc("/v1/workspaces/{id}/members/{membershipId}", controllers.MemberRemoveHandler).Methods("DELETE")
+	router.HandleFunc("/v1/workspaces/{id}/invites", controllers.TenantInviteCreateHandler).Methods("POST")
+
+	// Scheduled runs — polls scheduled_runs and enqueues agent_run jobs.
+	router.HandleFunc("/v1/workspaces/{id}/schedules", controllers.SchedulesListHandler).Methods("GET")
+	router.HandleFunc("/v1/workspaces/{id}/schedules", controllers.SchedulesCreateHandler).Methods("POST")
+	router.HandleFunc("/v1/workspaces/{id}/schedules/{schedId}", controllers.SchedulesDeleteHandler).Methods("DELETE")
+	router.HandleFunc("/v1/workspaces/{id}/schedules/{schedId}/runs", controllers.SchedulesRunsHandler).Methods("GET")
+	router.HandleFunc("/v1/workspaces/{id}/schedule-runs", controllers.ScheduledRunsAllExecutionsHandler).Methods("GET")
+
+	// Oathkeeper remote_json target for workspace authz (prest-tenant-* rules).
+	// Returns {"allowed": bool}. Registered on the top-level router so it
+	// bypasses the per-CRUD user-scope middleware (it's an internal authz call).
+	router.HandleFunc("/authz/workspace", controllers.AuthzWorkspaceHandler).Methods("POST")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.SelectFromTables).Methods("GET")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.InsertInTables).Methods("POST")
 	crudRoutes.HandleFunc("/batch/{database}/{schema}/{table}", controllers.BatchInsertInTables).Methods("POST")

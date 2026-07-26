@@ -26,8 +26,8 @@ import (
 // (ext_authz → Talos verify resolves the actor against Kratos).
 //
 // Tenant/membership cleanup is handled by the frontend before this call:
-//   - For owned tenants: DELETE /.hatchet/api/v1/tenants/{id}
-//   - Leaving other tenants: DELETE /.hatchet/api/v1/tenants/{id}/members/{m}
+//   - For owned tenants: DELETE /v1/workspaces/{id}
+//   - Leaving other tenants: DELETE /v1/workspaces/{id}/members/{m}
 func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
