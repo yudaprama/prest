@@ -1,10 +1,11 @@
 package controllers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // AuthzWorkspaceRequest is the payload Oathkeeper's remote_json authorizer
@@ -48,18 +49,13 @@ func AuthzWorkspaceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]bool{"allowed": false})
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	var role string
-	err = db.QueryRowContext(r.Context(),
+	err := db.QueryRow(r.Context(),
 		`SELECT role FROM tenant_members WHERE tenant_id = $1 AND lower(email) = $2`,
 		wsID, email).Scan(&role)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		writeJSON(w, http.StatusOK, map[string]bool{"allowed": false})
 		return
 	}

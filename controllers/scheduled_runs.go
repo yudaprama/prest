@@ -1,5 +1,5 @@
-// Package controllers — scheduled runs CRUD endpoints. Replaces Hatchet's
-// cron/scheduled-run trigger management with kawai-owned pREST handlers.
+// Package controllers — scheduled runs CRUD endpoints. Manages
+// cron/scheduled-run triggers via kawai-owned pREST handlers.
 //
 // Endpoints (workspace-scoped):
 //
@@ -10,7 +10,6 @@
 package controllers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -76,14 +75,9 @@ func SchedulesListHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "workspace id required")
 		return
 	}
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "db open: "+err.Error())
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
-	rows, err := db.QueryContext(r.Context(),
+	rows, err := db.Query(r.Context(),
 		`SELECT id, user_id, workspace_id, name, kind, expression, trigger_at, agent_id,
 		        goal, model, enabled, next_run_at, last_run_at, total_runs, created_at
 		 FROM scheduled_runs
@@ -98,31 +92,19 @@ func SchedulesListHandler(w http.ResponseWriter, r *http.Request) {
 	out := make([]scheduleRow, 0)
 	for rows.Next() {
 		var s scheduleRow
-		var expr, trig, agent, model, next, last sql.NullString
+		var expr, trig, agent, model, next, last *string
 		if err := rows.Scan(&s.ID, &s.UserID, &s.WorkspaceID, &s.Name, &s.Kind,
 			&expr, &trig, &agent, &s.Goal, &model, &s.Enabled,
 			&next, &last, &s.TotalRuns, &s.CreatedAt); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "scan: "+err.Error())
 			return
 		}
-		if expr.Valid {
-			s.Expression = &expr.String
-		}
-		if trig.Valid {
-			s.TriggerAt = &trig.String
-		}
-		if agent.Valid {
-			s.AgentID = &agent.String
-		}
-		if model.Valid {
-			s.Model = &model.String
-		}
-		if next.Valid {
-			s.NextRunAt = &next.String
-		}
-		if last.Valid {
-			s.LastRunAt = &last.String
-		}
+		s.Expression = expr
+		s.TriggerAt = trig
+		s.AgentID = agent
+		s.Model = model
+		s.NextRunAt = next
+		s.LastRunAt = last
 		out = append(out, s)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": out})
@@ -174,12 +156,7 @@ func SchedulesCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "db open: "+err.Error())
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	id, uuidErr := newUUID()
 	if uuidErr != nil {
@@ -189,17 +166,17 @@ func SchedulesCreateHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 
 	// Compute next_run_at for the scheduler.
-	var nextRunAt sql.NullTime
+	var nextRunAt *time.Time
 	if in.Kind == "cron" && in.Expression != nil {
-		nextRunAt = sql.NullTime{Time: now, Valid: true} // scheduler will re-compute
+		nextRunAt = &now // scheduler will re-compute
 	}
 	if in.Kind == "once" && in.TriggerAt != nil {
 		if t, err := time.Parse(time.RFC3339, *in.TriggerAt); err == nil {
-			nextRunAt = sql.NullTime{Time: t, Valid: true}
+			nextRunAt = &t
 		}
 	}
 
-	_, err = db.ExecContext(r.Context(),
+	_, err := db.Exec(r.Context(),
 		`INSERT INTO scheduled_runs
 		     (id, user_id, workspace_id, name, kind, expression, trigger_at, agent_id, goal, model, enabled, next_run_at, created_at, updated_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,$11,$12,$12)`,
@@ -223,8 +200,8 @@ func SchedulesCreateHandler(w http.ResponseWriter, r *http.Request) {
 	s.Goal = in.Goal
 	s.Model = in.Model
 	s.Enabled = true
-	if nextRunAt.Valid {
-		t := nextRunAt.Time.Format(time.RFC3339)
+	if nextRunAt != nil {
+		t := nextRunAt.Format(time.RFC3339)
 		s.NextRunAt = &t
 	}
 	s.TotalRuns = 0
@@ -249,16 +226,11 @@ func SchedulesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "workspace id and schedule id required")
 		return
 	}
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "db open: "+err.Error())
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	// Ownership check: schedule must belong to caller in this workspace.
 	var ownerID string
-	if err := db.QueryRowContext(r.Context(),
+	if err := db.QueryRow(r.Context(),
 		`SELECT user_id FROM scheduled_runs WHERE id = $1 AND workspace_id = $2`,
 		schedID, wsID).Scan(&ownerID); err != nil {
 		writeJSONError(w, http.StatusNotFound, "schedule not found")
@@ -269,14 +241,13 @@ func SchedulesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := db.ExecContext(r.Context(),
+	res, err := db.Exec(r.Context(),
 		`DELETE FROM scheduled_runs WHERE id = $1`, schedID)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "delete: "+err.Error())
 		return
 	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
+	if res.RowsAffected() == 0 {
 		writeJSONError(w, http.StatusNotFound, "schedule not found")
 		return
 	}
@@ -299,16 +270,11 @@ func SchedulesRunsHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "workspace id and schedule id required")
 		return
 	}
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "db open: "+err.Error())
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	// Verify caller owns this schedule in this workspace.
 	var ownerID string
-	if err := db.QueryRowContext(r.Context(),
+	if err := db.QueryRow(r.Context(),
 		`SELECT user_id FROM scheduled_runs WHERE id = $1 AND workspace_id = $2`,
 		schedID, wsID).Scan(&ownerID); err != nil {
 		writeJSONError(w, http.StatusNotFound, "schedule not found")
@@ -319,7 +285,7 @@ func SchedulesRunsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := db.QueryContext(r.Context(),
+	rows, err := db.Query(r.Context(),
 		`SELECT id, schedule_id, status, started_at, finished_at, duration_ms, output, error, created_at
 		 FROM scheduled_run_executions
 		 WHERE schedule_id = $1
@@ -334,28 +300,18 @@ func SchedulesRunsHandler(w http.ResponseWriter, r *http.Request) {
 	out := make([]executionRow, 0)
 	for rows.Next() {
 		var e executionRow
-		var started, finished, output, errMsg sql.NullString
-		var durMs sql.NullInt64
+		var started, finished, output, errMsg *string
+		var durMs *int64
 		if err := rows.Scan(&e.ID, &e.ScheduleID, &e.Status,
 			&started, &finished, &durMs, &output, &errMsg, &e.CreatedAt); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "scan: "+err.Error())
 			return
 		}
-		if started.Valid {
-			e.StartedAt = &started.String
-		}
-		if finished.Valid {
-			e.FinishedAt = &finished.String
-		}
-		if durMs.Valid {
-			e.DurationMs = &durMs.Int64
-		}
-		if output.Valid {
-			e.Output = &output.String
-		}
-		if errMsg.Valid {
-			e.Error = &errMsg.String
-		}
+		e.StartedAt = started
+		e.FinishedAt = finished
+		e.DurationMs = durMs
+		e.Output = output
+		e.Error = errMsg
 		out = append(out, e)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": out})
@@ -378,14 +334,9 @@ func ScheduledRunsAllExecutionsHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "workspace id required")
 		return
 	}
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "db open: "+err.Error())
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
-	rows, err := db.QueryContext(r.Context(),
+	rows, err := db.Query(r.Context(),
 		`SELECT e.id, e.schedule_id, e.status, e.started_at, e.finished_at,
 		        e.duration_ms, e.output, e.error, e.created_at,
 		        s.name, s.agent_id, s.goal
@@ -409,38 +360,22 @@ func ScheduledRunsAllExecutionsHandler(w http.ResponseWriter, r *http.Request) {
 	out := make([]runWithMeta, 0)
 	for rows.Next() {
 		var r runWithMeta
-		var started, finished, output, errMsg, name, agent, goal sql.NullString
-		var durMs sql.NullInt64
+		var started, finished, output, errMsg, name, agent, goal *string
+		var durMs *int64
 		if err := rows.Scan(&r.ID, &r.ScheduleID, &r.Status,
 			&started, &finished, &durMs, &output, &errMsg, &r.CreatedAt,
 			&name, &agent, &goal); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "scan: "+err.Error())
 			return
 		}
-		if started.Valid {
-			r.StartedAt = &started.String
-		}
-		if finished.Valid {
-			r.FinishedAt = &finished.String
-		}
-		if durMs.Valid {
-			r.DurationMs = &durMs.Int64
-		}
-		if output.Valid {
-			r.Output = &output.String
-		}
-		if errMsg.Valid {
-			r.Error = &errMsg.String
-		}
-		if name.Valid {
-			r.Name = &name.String
-		}
-		if agent.Valid {
-			r.AgentID = &agent.String
-		}
-		if goal.Valid {
-			r.Goal = &goal.String
-		}
+		r.StartedAt = started
+		r.FinishedAt = finished
+		r.DurationMs = durMs
+		r.Output = output
+		r.Error = errMsg
+		r.Name = name
+		r.AgentID = agent
+		r.Goal = goal
 		out = append(out, r)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": out})

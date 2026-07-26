@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/gorilla/mux"
 )
 
@@ -87,14 +88,9 @@ func TenantsListHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
-	rows, err := db.QueryContext(r.Context(),
+	rows, err := db.Query(r.Context(),
 		`SELECT t.id, t.name, t.slug, m.role, t.created_at, t.updated_at
 		 FROM tenants t
 		 JOIN tenant_members m ON m.tenant_id = t.id
@@ -115,14 +111,18 @@ func TenantsListHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t tenantRow
 		var role string
-		var createdAt, updatedAt sql.NullString
+		var createdAt, updatedAt *string
 		if err := rows.Scan(&t.ID, &t.Name, &t.Slug, &role, &createdAt, &updatedAt); err != nil {
 			slog.Error("tenants list: scan", "err", err)
 			writeJSONError(w, http.StatusBadGateway, "scan failed")
 			return
 		}
-		t.CreatedAt = createdAt.String
-		t.UpdatedAt = updatedAt.String
+		if createdAt != nil {
+			t.CreatedAt = *createdAt
+		}
+		if updatedAt != nil {
+			t.UpdatedAt = *updatedAt
+		}
 		out = append(out, membershipItem{tenantRow: t, Role: role})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": out})
@@ -151,12 +151,7 @@ func TenantsCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	id, err := newUUID()
 	if err != nil {
@@ -166,16 +161,16 @@ func TenantsCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	tx, err := db.BeginTx(ctx, nil)
+	tx, err := db.Begin(ctx)
 	if err != nil {
 		slog.Error("tenants create: begin tx", "err", err)
 		writeJSONError(w, http.StatusBadGateway, "could not create workspace")
 		return
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	now := time.Now().UTC()
-	if _, err := tx.ExecContext(ctx,
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO tenants (id, slug, name, created_by, created_at, updated_at)
 		 VALUES ($1, $2, $3, $4, $5, $5)`,
 		id, body.Slug, body.Name, u.ID, now); err != nil {
@@ -183,7 +178,7 @@ func TenantsCreateHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadGateway, "could not create workspace")
 		return
 	}
-	if _, err := tx.ExecContext(ctx,
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO tenant_members (tenant_id, user_id, email, role, created_at)
 		 VALUES ($1, $2, $3, $4, $5)`,
 		id, u.ID, strings.ToLower(u.Email), roleOwner, now); err != nil {
@@ -191,7 +186,7 @@ func TenantsCreateHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadGateway, "could not create workspace")
 		return
 	}
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		slog.Error("tenants create: commit", "err", err)
 		writeJSONError(w, http.StatusBadGateway, "could not create workspace")
 		return
@@ -212,23 +207,18 @@ func TenantGetHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "id required")
 		return
 	}
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	if !userIsMember(r.Context(), db, id, u.ID) {
 		writeJSONError(w, http.StatusForbidden, "not a member")
 		return
 	}
 	var t tenantRow
-	var createdAt, updatedAt sql.NullString
-	err = db.QueryRowContext(r.Context(),
+	var createdAt, updatedAt *string
+	err := db.QueryRow(r.Context(),
 		`SELECT id, name, slug, created_at, updated_at FROM tenants WHERE id = $1`, id).
 		Scan(&t.ID, &t.Name, &t.Slug, &createdAt, &updatedAt)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeJSONError(w, http.StatusNotFound, "not found")
 		return
 	}
@@ -237,8 +227,12 @@ func TenantGetHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadGateway, "query failed")
 		return
 	}
-	t.CreatedAt = createdAt.String
-	t.UpdatedAt = updatedAt.String
+	if createdAt != nil {
+		t.CreatedAt = *createdAt
+	}
+	if updatedAt != nil {
+		t.UpdatedAt = *updatedAt
+	}
 	writeJSON(w, http.StatusOK, t)
 }
 
@@ -257,25 +251,20 @@ func TenantRenameHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "name required")
 		return
 	}
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	if !userCanWrite(r.Context(), db, id, u.ID) {
 		writeJSONError(w, http.StatusForbidden, "insufficient permission")
 		return
 	}
-	res, err := db.ExecContext(r.Context(),
+	res, err := db.Exec(r.Context(),
 		`UPDATE tenants SET name = $1, updated_at = now() WHERE id = $2`, body.Name, id)
 	if err != nil {
 		slog.Error("tenant rename: exec", "err", err)
 		writeJSONError(w, http.StatusBadGateway, "update failed")
 		return
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	if res.RowsAffected() == 0 {
 		writeJSONError(w, http.StatusNotFound, "not found")
 		return
 	}
@@ -293,18 +282,13 @@ func TenantDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := mux.Vars(r)["id"]
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	if !userIsOwner(r.Context(), db, id, u.ID) {
 		writeJSONError(w, http.StatusForbidden, "only an owner can delete a workspace")
 		return
 	}
-	if _, err := db.ExecContext(r.Context(), `DELETE FROM tenants WHERE id = $1`, id); err != nil {
+	if _, err := db.Exec(r.Context(), `DELETE FROM tenants WHERE id = $1`, id); err != nil {
 		slog.Error("tenant delete: exec", "err", err)
 		writeJSONError(w, http.StatusBadGateway, "delete failed")
 		return
@@ -320,18 +304,13 @@ func TenantMembersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := mux.Vars(r)["id"]
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	if !userIsMember(r.Context(), db, id, u.ID) {
 		writeJSONError(w, http.StatusForbidden, "not a member")
 		return
 	}
-	rows, err := db.QueryContext(r.Context(),
+	rows, err := db.Query(r.Context(),
 		`SELECT tenant_id, user_id, email, role, created_at
 		 FROM tenant_members WHERE tenant_id = $1 ORDER BY created_at ASC`, id)
 	if err != nil {
@@ -344,14 +323,16 @@ func TenantMembersHandler(w http.ResponseWriter, r *http.Request) {
 	out := []memberRow{}
 	for rows.Next() {
 		var m memberRow
-		var createdAt sql.NullString
+		var createdAt *string
 		if err := rows.Scan(&m.TenantID, &m.UserID, &m.Email, &m.Role, &createdAt); err != nil {
 			slog.Error("members list: scan", "err", err)
 			writeJSONError(w, http.StatusBadGateway, "scan failed")
 			return
 		}
 		m.MembershipID = m.TenantID + ":" + m.UserID
-		m.CreatedAt = createdAt.String
+		if createdAt != nil {
+			m.CreatedAt = *createdAt
+		}
 		out = append(out, m)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": out})
@@ -381,12 +362,7 @@ func MemberUpdateRoleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	if !userIsOwner(r.Context(), db, id, u.ID) {
 		writeJSONError(w, http.StatusForbidden, "only an owner can manage members")
@@ -401,7 +377,7 @@ func MemberUpdateRoleHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	res, err := db.ExecContext(r.Context(),
+	res, err := db.Exec(r.Context(),
 		`UPDATE tenant_members SET role = $1 WHERE tenant_id = $2 AND user_id = $3`,
 		body.Role, id, targetUserID)
 	if err != nil {
@@ -409,7 +385,7 @@ func MemberUpdateRoleHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadGateway, "update failed")
 		return
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	if res.RowsAffected() == 0 {
 		writeJSONError(w, http.StatusNotFound, "member not found")
 		return
 	}
@@ -434,12 +410,7 @@ func MemberRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	isOwner := userIsOwner(r.Context(), db, id, u.ID)
 	if targetUserID != u.ID && !isOwner {
@@ -458,7 +429,7 @@ func MemberRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err := db.ExecContext(r.Context(),
+	if _, err := db.Exec(r.Context(),
 		`DELETE FROM tenant_members WHERE tenant_id = $1 AND user_id = $2`,
 		id, targetUserID); err != nil {
 		slog.Error("member remove: exec", "err", err)
@@ -489,12 +460,7 @@ func TenantInviteCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	body.Email = strings.ToLower(strings.TrimSpace(body.Email))
 
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	if !userIsOwner(r.Context(), db, id, u.ID) {
 		writeJSONError(w, http.StatusForbidden, "only an owner can invite")
@@ -513,7 +479,7 @@ func TenantInviteCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	expires := time.Now().UTC().Add(7 * 24 * time.Hour)
 
-	if _, err := db.ExecContext(r.Context(),
+	if _, err := db.Exec(r.Context(),
 		`INSERT INTO tenant_invites (id, tenant_id, email, role, token, invited_by, expires_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		invID, id, body.Email, body.Role, token, u.ID, expires); err != nil {
@@ -544,29 +510,24 @@ func TenantInviteAcceptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "db unavailable")
-		return
-	}
-	defer db.Close()
+	db := kawaiDB()
 
 	ctx := r.Context()
-	tx, err := db.BeginTx(ctx, nil)
+	tx, err := db.Begin(ctx)
 	if err != nil {
 		writeJSONError(w, http.StatusBadGateway, "tx failed")
 		return
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	var inv inviteRow
-	var expires sql.NullString
-	err = tx.QueryRowContext(ctx,
+	var expires *string
+	err = tx.QueryRow(ctx,
 		`SELECT id, tenant_id, email, role, expires_at
 		 FROM tenant_invites
 		 WHERE token = $1 AND accepted_at IS NULL AND expires_at > now()`,
 		body.Token).Scan(&inv.ID, &inv.TenantID, &inv.Email, &inv.Role, &expires)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeJSONError(w, http.StatusNotFound, "invite not found or expired")
 		return
 	}
@@ -583,7 +544,7 @@ func TenantInviteAcceptHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC()
-	if _, err := tx.ExecContext(ctx,
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO tenant_members (tenant_id, user_id, email, role, created_at)
 		 VALUES ($1, $2, $3, $4, $5)
 		 ON CONFLICT (tenant_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
@@ -592,14 +553,14 @@ func TenantInviteAcceptHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadGateway, "could not accept invite")
 		return
 	}
-	if _, err := tx.ExecContext(ctx,
+	if _, err := tx.Exec(ctx,
 		`UPDATE tenant_invites SET accepted_at = now(), accepted_by = $2 WHERE id = $1`,
 		inv.ID, u.ID); err != nil {
 		slog.Error("invite accept: mark accepted", "err", err)
 		writeJSONError(w, http.StatusBadGateway, "could not accept invite")
 		return
 	}
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		writeJSONError(w, http.StatusBadGateway, "commit failed")
 		return
 	}
@@ -608,41 +569,41 @@ func TenantInviteAcceptHandler(w http.ResponseWriter, r *http.Request) {
 
 // ───────────────────────── helpers ─────────────────────────
 
-func userIsMember(ctx context.Context, db *sql.DB, tenantID, userID string) bool {
+func userIsMember(ctx context.Context, db *pgxpool.Pool, tenantID, userID string) bool {
 	if tenantID == "" || userID == "" {
 		return false
 	}
 	var one int
-	err := db.QueryRowContext(ctx,
+	err := db.QueryRow(ctx,
 		`SELECT 1 FROM tenant_members WHERE tenant_id = $1 AND user_id = $2`,
 		tenantID, userID).Scan(&one)
 	return err == nil
 }
 
-func userIsOwner(ctx context.Context, db *sql.DB, tenantID, userID string) bool {
+func userIsOwner(ctx context.Context, db *pgxpool.Pool, tenantID, userID string) bool {
 	role, _ := userRole(ctx, db, tenantID, userID)
 	return role == roleOwner
 }
 
-func userCanWrite(ctx context.Context, db *sql.DB, tenantID, userID string) bool {
+func userCanWrite(ctx context.Context, db *pgxpool.Pool, tenantID, userID string) bool {
 	role, _ := userRole(ctx, db, tenantID, userID)
 	return role == roleOwner || role == roleMember
 }
 
-func userRole(ctx context.Context, db *sql.DB, tenantID, userID string) (string, error) {
+func userRole(ctx context.Context, db *pgxpool.Pool, tenantID, userID string) (string, error) {
 	var role string
-	err := db.QueryRowContext(ctx,
+	err := db.QueryRow(ctx,
 		`SELECT role FROM tenant_members WHERE tenant_id = $1 AND user_id = $2`,
 		tenantID, userID).Scan(&role)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
 	}
 	return role, err
 }
 
-func countOwners(ctx context.Context, db *sql.DB, tenantID string) (int, error) {
+func countOwners(ctx context.Context, db *pgxpool.Pool, tenantID string) (int, error) {
 	var n int
-	err := db.QueryRowContext(ctx,
+	err := db.QueryRow(ctx,
 		`SELECT COUNT(*) FROM tenant_members WHERE tenant_id = $1 AND role = 'owner'`,
 		tenantID).Scan(&n)
 	return n, err

@@ -38,11 +38,7 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	db, err := kawaiDB()
-	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
-		return
-	}
+	db := kawaiDB()
 	ctx := r.Context()
 
 	// 1) Content by user_id. Order matters for FK safety: messages/topics reference
@@ -55,7 +51,7 @@ func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		"sessions",
 	}
 	for _, t := range contentTables {
-		if _, err := db.ExecContext(ctx, `DELETE FROM `+t+` WHERE user_id = $1`, userID); err != nil {
+		if _, err := db.Exec(ctx, `DELETE FROM `+t+` WHERE user_id = $1`, userID); err != nil {
 			slog.Error("account delete: purge table", "table", t, "user", userID, "err", err)
 			writeJSONError(w, http.StatusBadGateway, "could not purge account data")
 			return
