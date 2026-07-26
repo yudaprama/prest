@@ -1,0 +1,52 @@
+middlewares/workspaceactive.go
+  s_b6a3b3bff3e435::t_b3f5ed22c264c0 15
+controllers/account.go
+  s_b6a3b3bff3e435::t_5b5005e9073686 29-30
+router/router.go
+  s_b6a3b3bff3e435::t_6afd10cda35ab4 53
+  s_85816c5405ca10::t_eafac842afa78a 38,42-52,60-63
+  s_b6a3b3bff3e435::t_6efc426a5040b7 39-41
+  s_85816c5405ca10::t_9a5c5f5d9cb691 54-59
+controllers/authz.go
+  s_85816c5405ca10::t_ba5e8f9b77d94d 1-24,26-85
+  s_b6a3b3bff3e435::t_cc8f50500a73c6 25
+controllers/workspaces.go
+  s_b6a3b3bff3e435::t_4dc823071b6c50 288
+  s_85816c5405ca10::t_a22d32752f9f74 1-17,19-287,289-710
+  s_b6a3b3bff3e435::t_e96c00afa85cca 18
+controllers/scheduled_runs.go
+  s_85816c5405ca10::t_7ae60814ebaa9d 69-71
+  s_85816c5405ca10::t_f01a238eb84ff4 371-373
+  s_85816c5405ca10::t_5a12aee289f9e0 241-243
+  s_85816c5405ca10::t_adb78a018c1c5f 19
+  s_85816c5405ca10::t_ed1c7b8ad8eddf 247,297
+  s_85816c5405ca10::t_c1fee60614d965 184-188
+  s_85816c5405ca10::t_27172d6da491ab 137-139
+  s_85816c5405ca10::t_859a6fbdffd772 1-18,20-68,72-73,75-136,140-141,143-183,189-240,244-245,248-290,294-295,298-370,374-375,377-447
+  s_85816c5405ca10::t_64bbb6b5b287a8 74,142,246,296,376
+  s_85816c5405ca10::t_721bdce05fff8b 291-293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "982b2d0f18186a9f9125da154bae8cfadae4297e",
+  "prompts": {},
+  "sessions": {
+    "s_85816c5405ca10": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0630e016affegl7bLvPZOtm9mT",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    },
+    "s_b6a3b3bff3e435": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_062555b60ffevtG7Gv4CCIBuqi",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
