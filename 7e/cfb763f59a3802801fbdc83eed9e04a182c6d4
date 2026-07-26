@@ -1,0 +1,36 @@
+controllers/workspaces.go
+  s_d49ad7e9ca7ed5::t_440d69523eb9c7 205,246,284,306,451
+controllers/account.go
+  s_d49ad7e9ca7ed5::t_0441c15c9fa9f1 4,6
+  s_d49ad7e9ca7ed5::t_1c064944533b50 5,7
+  s_d49ad7e9ca7ed5::t_b4fff06bf025a2 95-262
+controllers/scheduled_runs.go
+  s_d49ad7e9ca7ed5::t_89515689dc1fe8 169-170,173-176
+  s_d49ad7e9ca7ed5::t_8f2f93102b1894 19
+  s_d49ad7e9ca7ed5::t_aac33206cfa581 74,125,228,272,337
+controllers/workspace_middleware.go
+  s_d49ad7e9ca7ed5::t_96081d9cd86ca4 1-7,10,14-15,17,19-21,23-28
+  s_d49ad7e9ca7ed5::t_ea33c80b5e8d6b 8-9,11-13,16,18,22
+go.mod
+  s_d49ad7e9ca7ed5::t_2ffc62952790d3 21
+router/router.go
+  s_d49ad7e9ca7ed5::t_df42a961ab7640 36,38-39,41-63
+go.sum
+  s_d49ad7e9ca7ed5::t_07c4fc9312ee60 86-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "7ecfb763f59a3802801fbdc83eed9e04a182c6d4",
+  "prompts": {},
+  "sessions": {
+    "s_d49ad7e9ca7ed5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_061c05e7effeALYUzVXUqMK9HG",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
