@@ -1,0 +1,21 @@
+controllers/healthcheck.go
+  s_b28ee2d3f06bd6::t_1c7bc39f9076ce 5,10,23-24,37
+  s_b28ee2d3f06bd6::t_8afa74ceac166e 25,29-36,38-43
+  s_b28ee2d3f06bd6::t_d3df53eb508f0d 26-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f2fa1692cb360b060e68cb063aa5bde682bddd0b",
+  "prompts": {},
+  "sessions": {
+    "s_b28ee2d3f06bd6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_065832153ffexBC3eUElQz6bxv",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
