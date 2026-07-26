@@ -1,0 +1,28 @@
+controllers/scheduled_runs.go
+  s_b383fea822b8b5::t_e88b2236f7905b 382
+controllers/utils.go
+  s_b383fea822b8b5::t_56f0428e7967b4 20-32,45
+  s_b383fea822b8b5::t_da706968cce123 18-19
+controllers/workspaces.go
+  s_b383fea822b8b5::t_e88b2236f7905b 671
+controllers/authz.go
+  s_b383fea822b8b5::t_e88b2236f7905b 81
+controllers/account.go
+  s_b383fea822b8b5::t_e88b2236f7905b 91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d394ace1ce7a1f71d63ae1271930744b873ff1d5",
+  "prompts": {},
+  "sessions": {
+    "s_b383fea822b8b5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0620f973bffeA6qKVjrQnSCF0d",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
