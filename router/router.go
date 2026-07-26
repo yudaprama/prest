@@ -29,7 +29,6 @@ func GetRouter() *mux.Router {
 	if runtime.GOOS != "windows" {
 		router.HandleFunc("/_PLUGIN/{file}/{func}", plugins.HandlerPlugin)
 	}
-	router.HandleFunc("/{database}/{schema}", controllers.GetTablesByDatabaseAndSchema).Methods("GET")
 	router.HandleFunc("/show/{database}/{schema}/{table}", controllers.ShowTable).Methods("GET")
 	crudRoutes := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
 	router.HandleFunc("/_health", controllers.WrappedHealthCheck(controllers.DefaultCheckList)).Methods("GET")
@@ -67,6 +66,7 @@ func GetRouter() *mux.Router {
 	// Returns {"allowed": bool}. Registered on the top-level router so it
 	// bypasses the per-CRUD user-scope middleware (it's an internal authz call).
 	router.HandleFunc("/authz/workspace", controllers.AuthzWorkspaceHandler).Methods("POST")
+	router.HandleFunc("/{database}/{schema}", controllers.GetTablesByDatabaseAndSchema).Methods("GET")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.SelectFromTables).Methods("GET")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.InsertInTables).Methods("POST")
 	crudRoutes.HandleFunc("/batch/{database}/{schema}/{table}", controllers.BatchInsertInTables).Methods("POST")
