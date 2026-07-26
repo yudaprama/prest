@@ -33,29 +33,34 @@ func GetRouter() *mux.Router {
 	router.HandleFunc("/show/{database}/{schema}/{table}", controllers.ShowTable).Methods("GET")
 	crudRoutes := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
 	router.HandleFunc("/_health", controllers.WrappedHealthCheck(controllers.DefaultCheckList)).Methods("GET")
-	// Account self-service closure (purges Kawai data + Kratos identity).
+	// Account self-service (not workspace-scoped — no X-Tenant-Id needed).
 	router.HandleFunc("/v1/account/delete", controllers.AccountDeleteHandler).Methods("POST")
+	router.HandleFunc("/v1/account/active-workspace", controllers.ActiveWorkspaceGetHandler).Methods("GET")
+	router.HandleFunc("/v1/account/active-workspace", controllers.ActiveWorkspaceSetHandler).Methods("PATCH")
 
-	// Workspace management (tenants + members + invites). Edge rule
-	// prest-tenants-v1 injects X-User-Id + X-User-Email; each handler
-	// enforces tenant-level authz.
-	router.HandleFunc("/v1/workspaces", controllers.TenantsListHandler).Methods("GET")
-	router.HandleFunc("/v1/workspaces", controllers.TenantsCreateHandler).Methods("POST")
-	router.HandleFunc("/v1/workspaces/invites/accept", controllers.TenantInviteAcceptHandler).Methods("POST")
-	router.HandleFunc("/v1/workspaces/{id}", controllers.TenantGetHandler).Methods("GET")
-	router.HandleFunc("/v1/workspaces/{id}", controllers.TenantRenameHandler).Methods("PATCH")
-	router.HandleFunc("/v1/workspaces/{id}", controllers.TenantDeleteHandler).Methods("DELETE")
-	router.HandleFunc("/v1/workspaces/{id}/members", controllers.TenantMembersHandler).Methods("GET")
-	router.HandleFunc("/v1/workspaces/{id}/members/{membershipId}", controllers.MemberUpdateRoleHandler).Methods("PATCH")
-	router.HandleFunc("/v1/workspaces/{id}/members/{membershipId}", controllers.MemberRemoveHandler).Methods("DELETE")
-	router.HandleFunc("/v1/workspaces/{id}/invites", controllers.TenantInviteCreateHandler).Methods("POST")
+	// Workspace management — bare routes (no active workspace needed: list,
+	// create, accept invite). NOT behind RequireWorkspaceMembership.
+	wsBare := router.PathPrefix("/v1/workspaces").Subrouter()
+	wsBare.HandleFunc("", controllers.TenantsListHandler).Methods("GET")
+	wsBare.HandleFunc("", controllers.TenantsCreateHandler).Methods("POST")
+	wsBare.HandleFunc("/invites/accept", controllers.TenantInviteAcceptHandler).Methods("POST")
 
-	// Scheduled runs — polls scheduled_runs and enqueues agent_run jobs.
-	router.HandleFunc("/v1/workspaces/{id}/schedules", controllers.SchedulesListHandler).Methods("GET")
-	router.HandleFunc("/v1/workspaces/{id}/schedules", controllers.SchedulesCreateHandler).Methods("POST")
-	router.HandleFunc("/v1/workspaces/{id}/schedules/{schedId}", controllers.SchedulesDeleteHandler).Methods("DELETE")
-	router.HandleFunc("/v1/workspaces/{id}/schedules/{schedId}/runs", controllers.SchedulesRunsHandler).Methods("GET")
-	router.HandleFunc("/v1/workspaces/{id}/schedule-runs", controllers.ScheduledRunsAllExecutionsHandler).Methods("GET")
+	// Workspace-scoped routes — RequireWorkspaceMembership enforces X-Tenant-Id
+	// (injected by Oathkeeper from Kratos metadata_public.active_workspace_id).
+	wsScoped := router.PathPrefix("/v1/workspaces").Subrouter()
+	wsScoped.Use(controllers.RequireWorkspaceMembership)
+	wsScoped.HandleFunc("/current", controllers.TenantGetHandler).Methods("GET")
+	wsScoped.HandleFunc("/current", controllers.TenantRenameHandler).Methods("PATCH")
+	wsScoped.HandleFunc("/current", controllers.TenantDeleteHandler).Methods("DELETE")
+	wsScoped.HandleFunc("/members", controllers.TenantMembersHandler).Methods("GET")
+	wsScoped.HandleFunc("/members/{membershipId}", controllers.MemberUpdateRoleHandler).Methods("PATCH")
+	wsScoped.HandleFunc("/members/{membershipId}", controllers.MemberRemoveHandler).Methods("DELETE")
+	wsScoped.HandleFunc("/invites", controllers.TenantInviteCreateHandler).Methods("POST")
+	wsScoped.HandleFunc("/schedules", controllers.SchedulesListHandler).Methods("GET")
+	wsScoped.HandleFunc("/schedules", controllers.SchedulesCreateHandler).Methods("POST")
+	wsScoped.HandleFunc("/schedules/{schedId}", controllers.SchedulesDeleteHandler).Methods("DELETE")
+	wsScoped.HandleFunc("/schedules/{schedId}/runs", controllers.SchedulesRunsHandler).Methods("GET")
+	wsScoped.HandleFunc("/schedule-runs", controllers.ScheduledRunsAllExecutionsHandler).Methods("GET")
 
 	// Oathkeeper remote_json target for workspace authz (prest-tenant-* rules).
 	// Returns {"allowed": bool}. Registered on the top-level router so it

@@ -202,7 +202,7 @@ func TenantGetHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	id := mux.Vars(r)["id"]
+	id := r.Header.Get("X-Tenant-Id")
 	if id == "" {
 		writeJSONError(w, http.StatusBadRequest, "id required")
 		return
@@ -243,7 +243,7 @@ func TenantRenameHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	id := mux.Vars(r)["id"]
+	id := r.Header.Get("X-Tenant-Id")
 	var body struct {
 		Name string `json:"name"`
 	}
@@ -281,7 +281,7 @@ func TenantDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	id := mux.Vars(r)["id"]
+	id := r.Header.Get("X-Tenant-Id")
 	db := kawaiDB()
 
 	if !userIsOwner(r.Context(), db, id, u.ID) {
@@ -303,7 +303,7 @@ func TenantMembersHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	id := mux.Vars(r)["id"]
+	id := r.Header.Get("X-Tenant-Id")
 	db := kawaiDB()
 
 	if !userIsMember(r.Context(), db, id, u.ID) {
@@ -448,7 +448,7 @@ func TenantInviteCreateHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	id := mux.Vars(r)["id"]
+	id := r.Header.Get("X-Tenant-Id")
 	var body struct {
 		Email string `json:"email"`
 		Role  string `json:"role"`

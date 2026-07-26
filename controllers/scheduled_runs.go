@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/robfig/cron/v3"
 )
 
 // ── Request / response types ────────────────────────────────────────────────
@@ -70,7 +71,7 @@ func SchedulesListHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "missing user")
 		return
 	}
-	wsID := mux.Vars(r)["id"]
+	wsID := r.Header.Get("X-Tenant-Id")
 	if wsID == "" {
 		writeJSONError(w, http.StatusBadRequest, "workspace id required")
 		return
@@ -121,7 +122,7 @@ func SchedulesCreateHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "missing user")
 		return
 	}
-	wsID := mux.Vars(r)["id"]
+	wsID := r.Header.Get("X-Tenant-Id")
 	if wsID == "" {
 		writeJSONError(w, http.StatusBadRequest, "workspace id required")
 		return
@@ -165,10 +166,14 @@ func SchedulesCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	now := time.Now().UTC()
 
-	// Compute next_run_at for the scheduler.
+	// Compute next_run_at for the scheduler so the FIRST fire respects the
+	// cron expression (avoids a spurious immediate run at creation).
 	var nextRunAt *time.Time
 	if in.Kind == "cron" && in.Expression != nil {
-		nextRunAt = &now // scheduler will re-compute
+		if sched, err := cron.ParseStandard(*in.Expression); err == nil {
+			t := sched.Next(now)
+			nextRunAt = &t
+		}
 	}
 	if in.Kind == "once" && in.TriggerAt != nil {
 		if t, err := time.Parse(time.RFC3339, *in.TriggerAt); err == nil {
@@ -220,7 +225,7 @@ func SchedulesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "missing user")
 		return
 	}
-	wsID := mux.Vars(r)["id"]
+	wsID := r.Header.Get("X-Tenant-Id")
 	schedID := mux.Vars(r)["schedId"]
 	if wsID == "" || schedID == "" {
 		writeJSONError(w, http.StatusBadRequest, "workspace id and schedule id required")
@@ -264,7 +269,7 @@ func SchedulesRunsHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "missing user")
 		return
 	}
-	wsID := mux.Vars(r)["id"]
+	wsID := r.Header.Get("X-Tenant-Id")
 	schedID := mux.Vars(r)["schedId"]
 	if wsID == "" || schedID == "" {
 		writeJSONError(w, http.StatusBadRequest, "workspace id and schedule id required")
@@ -329,7 +334,7 @@ func ScheduledRunsAllExecutionsHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusUnauthorized, "missing user")
 		return
 	}
-	wsID := mux.Vars(r)["id"]
+	wsID := r.Header.Get("X-Tenant-Id")
 	if wsID == "" {
 		writeJSONError(w, http.StatusBadRequest, "workspace id required")
 		return
