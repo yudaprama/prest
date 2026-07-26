@@ -1,0 +1,19 @@
+router/router.go
+  s_d49ad7e9ca7ed5::t_f18f06c55ba179 42-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "8b14f80bca2b3cf2eef07a364bc2e10255efa1d9",
+  "prompts": {},
+  "sessions": {
+    "s_d49ad7e9ca7ed5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_061c05e7effeALYUzVXUqMK9HG",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
