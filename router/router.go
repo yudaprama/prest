@@ -39,11 +39,12 @@ func GetRouter() *mux.Router {
 	router.HandleFunc("/v1/account/active-workspace", controllers.ActiveWorkspaceSetHandler).Methods("PATCH")
 
 	// Workspace management — bare routes (no active workspace needed: list,
-	// create, accept invite). NOT behind RequireWorkspaceMembership.
-	wsBare := router.PathPrefix("/v1/workspaces").Subrouter()
-	wsBare.HandleFunc("", controllers.TenantsListHandler).Methods("GET")
-	wsBare.HandleFunc("", controllers.TenantsCreateHandler).Methods("POST")
-	wsBare.HandleFunc("/invites/accept", controllers.TenantInviteAcceptHandler).Methods("POST")
+	// create, accept invite). Registered on the main router (NOT a subrouter)
+	// because gorilla/mux PathPrefix subrouters don't match the empty-path
+	// case (""). These must come BEFORE the scoped subrouter below.
+	router.HandleFunc("/v1/workspaces", controllers.TenantsListHandler).Methods("GET")
+	router.HandleFunc("/v1/workspaces", controllers.TenantsCreateHandler).Methods("POST")
+	router.HandleFunc("/v1/workspaces/invites/accept", controllers.TenantInviteAcceptHandler).Methods("POST")
 
 	// Workspace-scoped routes — RequireWorkspaceMembership enforces X-Tenant-Id
 	// (injected by Oathkeeper from Kratos metadata_public.active_workspace_id).
