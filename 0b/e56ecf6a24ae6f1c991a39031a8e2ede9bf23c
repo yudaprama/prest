@@ -1,0 +1,58 @@
+adapters/postgres/postgres.go
+  s_252e7d7a01c6eb::t_712d001fbacecd 1090-1093,1096,1098,1100,1103-1108,1110,1112-1117,1119,1121-1134,1139,1144,1149-1155,1160,1165,1170-1171
+  s_252e7d7a01c6eb::t_522c1fbfdbd6ff 2012
+  s_252e7d7a01c6eb::t_fb48d4b85b040d 32-33
+  s_252e7d7a01c6eb::t_17e9154f6cd989 62
+  s_252e7d7a01c6eb::t_8db6d8f50f7a9e 164
+  s_252e7d7a01c6eb::t_7c486385ced483 1260
+  s_252e7d7a01c6eb::t_f3ded1b2fd9021 1435
+  s_252e7d7a01c6eb::t_a70f67b6e779b5 1303
+  s_252e7d7a01c6eb::t_5bfabb833cf27e 1343
+adapters/postgres/internal/connection/conn.go
+  s_252e7d7a01c6eb::t_cbfc63f9461556 161
+  s_252e7d7a01c6eb::t_2982c90933cbf0 5,17
+  s_252e7d7a01c6eb::t_7eaf68b6386616 28,32-42
+  s_252e7d7a01c6eb::t_49a1cc19b1affe 195
+  s_252e7d7a01c6eb::t_afd591ad748e35 276
+  s_252e7d7a01c6eb::t_d41f32d750147e 104
+  s_252e7d7a01c6eb::t_e3180fa8474572 115-119
+  s_252e7d7a01c6eb::t_4961513ed4d8c9 149
+  s_252e7d7a01c6eb::t_f1da200a4274ba 238
+  s_252e7d7a01c6eb::t_5b8f2c7653e156 175
+  s_252e7d7a01c6eb::t_d16cccf9388884 213
+  s_252e7d7a01c6eb::t_4e79dd7cfdc2a9 197
+  s_252e7d7a01c6eb::t_7f0a28240d2165 89
+  s_42bc2632d74123::t_25e1f4f8a7a6b4 43-44
+adapters/postgres/connection.go
+  s_252e7d7a01c6eb::t_bd55276e6e5e7c 4,6,15,24,34,50,55
+cmd/migrate.go
+  s_252e7d7a01c6eb::t_f3ce486687cc20 12-13
+go.mod
+  s_252e7d7a01c6eb::t_4102c2a4c4fa42 34
+adapters/postgres/internal/connection/multi_test.go
+  s_252e7d7a01c6eb::t_d49dc67ec229b5 41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0be56ecf6a24ae6f1c991a39031a8e2ede9bf23c",
+  "prompts": {},
+  "sessions": {
+    "s_252e7d7a01c6eb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_05e20ecb0ffeeilGN4HMdP07QU",
+        "model": "kawai-pro-max"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    },
+    "s_42bc2632d74123": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_05e603aceffeasFHIExtuWG6ed",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
