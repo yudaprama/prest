@@ -1,0 +1,44 @@
+controllers/workspaces.go
+  s_bf7877422f1218::t_9a886e26041fba 524
+  s_bf7877422f1218::t_585094af073f0e 217,231,234
+  s_bf7877422f1218::t_50f442b59930f0 326,334
+  s_bf7877422f1218::t_c4c06d5aa3b658 114,121,124
+controllers/scheduled_runs.go
+  s_bf7877422f1218::t_71051989425688 96-97,100,105-108,111-121
+  s_bf7877422f1218::t_5621e45c9f29d7 321-322,325,329-336,340-342
+  s_bf7877422f1218::t_bbce0fd9cffda8 391-392,395,400-407,411-413
+controllers/account.go
+  s_bf7877422f1218::t_0db5d935d58521 339-352
+  s_0e4b2188752a61::t_04cf12d03c674c 79-80,372
+  s_0e4b2188752a61::t_43e65de44aa1c4 12
+  s_0e4b2188752a61::t_234056fbcc9bc6 21-36,40-42,53,57-72,83-84,90-164
+controllers/utils.go
+  s_0e4b2188752a61::t_09d6ba87003d16 17-18,36-51
+  s_0e4b2188752a61::t_1f632342ee1336 6
+  s_0e4b2188752a61::t_04cf12d03c674c 15-16,52,66
+  s_0e4b2188752a61::t_b9af0811af7404 53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "7daf8dd03746afdc0762f34650d200c7d02f6807",
+  "prompts": {},
+  "sessions": {
+    "s_0e4b2188752a61": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_05b965597ffeYANbX5hw9F9YwX",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    },
+    "s_bf7877422f1218": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_05be99cafffeu0cUGlvI8YSx1A",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
