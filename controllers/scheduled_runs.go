@@ -93,19 +93,32 @@ func SchedulesListHandler(w http.ResponseWriter, r *http.Request) {
 	out := make([]scheduleRow, 0)
 	for rows.Next() {
 		var s scheduleRow
-		var expr, trig, agent, model, next, last *string
+		var expr, agent, model *string
+		var trig, next, last, createdAt *time.Time
 		if err := rows.Scan(&s.ID, &s.UserID, &s.WorkspaceID, &s.Name, &s.Kind,
 			&expr, &trig, &agent, &s.Goal, &model, &s.Enabled,
-			&next, &last, &s.TotalRuns, &s.CreatedAt); err != nil {
+			&next, &last, &s.TotalRuns, &createdAt); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "scan: "+err.Error())
 			return
 		}
 		s.Expression = expr
-		s.TriggerAt = trig
+		if trig != nil {
+			ts := trig.UTC().Format(time.RFC3339)
+			s.TriggerAt = &ts
+		}
 		s.AgentID = agent
 		s.Model = model
-		s.NextRunAt = next
-		s.LastRunAt = last
+		if next != nil {
+			ts := next.UTC().Format(time.RFC3339)
+			s.NextRunAt = &ts
+		}
+		if last != nil {
+			ts := last.UTC().Format(time.RFC3339)
+			s.LastRunAt = &ts
+		}
+		if createdAt != nil {
+			s.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+		}
 		out = append(out, s)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": out})
@@ -305,18 +318,28 @@ func SchedulesRunsHandler(w http.ResponseWriter, r *http.Request) {
 	out := make([]executionRow, 0)
 	for rows.Next() {
 		var e executionRow
-		var started, finished, output, errMsg *string
+		var output, errMsg *string
+		var started, finished, createdAt *time.Time
 		var durMs *int64
 		if err := rows.Scan(&e.ID, &e.ScheduleID, &e.Status,
-			&started, &finished, &durMs, &output, &errMsg, &e.CreatedAt); err != nil {
+			&started, &finished, &durMs, &output, &errMsg, &createdAt); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "scan: "+err.Error())
 			return
 		}
-		e.StartedAt = started
-		e.FinishedAt = finished
+		if started != nil {
+			ts := started.UTC().Format(time.RFC3339)
+			e.StartedAt = &ts
+		}
+		if finished != nil {
+			ts := finished.UTC().Format(time.RFC3339)
+			e.FinishedAt = &ts
+		}
 		e.DurationMs = durMs
 		e.Output = output
 		e.Error = errMsg
+		if createdAt != nil {
+			e.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+		}
 		out = append(out, e)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": out})
@@ -365,19 +388,29 @@ func ScheduledRunsAllExecutionsHandler(w http.ResponseWriter, r *http.Request) {
 	out := make([]runWithMeta, 0)
 	for rows.Next() {
 		var r runWithMeta
-		var started, finished, output, errMsg, name, agent, goal *string
+		var output, errMsg, name, agent, goal *string
+		var started, finished, createdAt *time.Time
 		var durMs *int64
 		if err := rows.Scan(&r.ID, &r.ScheduleID, &r.Status,
-			&started, &finished, &durMs, &output, &errMsg, &r.CreatedAt,
+			&started, &finished, &durMs, &output, &errMsg, &createdAt,
 			&name, &agent, &goal); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "scan: "+err.Error())
 			return
 		}
-		r.StartedAt = started
-		r.FinishedAt = finished
+		if started != nil {
+			ts := started.UTC().Format(time.RFC3339)
+			r.StartedAt = &ts
+		}
+		if finished != nil {
+			ts := finished.UTC().Format(time.RFC3339)
+			r.FinishedAt = &ts
+		}
 		r.DurationMs = durMs
 		r.Output = output
 		r.Error = errMsg
+		if createdAt != nil {
+			r.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+		}
 		r.Name = name
 		r.AgentID = agent
 		r.Goal = goal

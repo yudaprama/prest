@@ -111,17 +111,17 @@ func TenantsListHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t tenantRow
 		var role string
-		var createdAt, updatedAt *string
+		var createdAt, updatedAt *time.Time
 		if err := rows.Scan(&t.ID, &t.Name, &t.Slug, &role, &createdAt, &updatedAt); err != nil {
 			slog.Error("tenants list: scan", "err", err)
 			writeJSONError(w, http.StatusBadGateway, "scan failed")
 			return
 		}
 		if createdAt != nil {
-			t.CreatedAt = *createdAt
+			t.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		}
 		if updatedAt != nil {
-			t.UpdatedAt = *updatedAt
+			t.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
 		}
 		out = append(out, membershipItem{tenantRow: t, Role: role})
 	}
@@ -214,7 +214,7 @@ func TenantGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var t tenantRow
-	var createdAt, updatedAt *string
+	var createdAt, updatedAt *time.Time
 	err := db.QueryRow(r.Context(),
 		`SELECT id, name, slug, created_at, updated_at FROM tenants WHERE id = $1`, id).
 		Scan(&t.ID, &t.Name, &t.Slug, &createdAt, &updatedAt)
@@ -228,10 +228,10 @@ func TenantGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if createdAt != nil {
-		t.CreatedAt = *createdAt
+		t.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 	}
 	if updatedAt != nil {
-		t.UpdatedAt = *updatedAt
+		t.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
 	}
 	writeJSON(w, http.StatusOK, t)
 }
@@ -323,7 +323,7 @@ func TenantMembersHandler(w http.ResponseWriter, r *http.Request) {
 	out := []memberRow{}
 	for rows.Next() {
 		var m memberRow
-		var createdAt *string
+		var createdAt *time.Time
 		if err := rows.Scan(&m.TenantID, &m.UserID, &m.Email, &m.Role, &createdAt); err != nil {
 			slog.Error("members list: scan", "err", err)
 			writeJSONError(w, http.StatusBadGateway, "scan failed")
@@ -331,7 +331,7 @@ func TenantMembersHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		m.MembershipID = m.TenantID + ":" + m.UserID
 		if createdAt != nil {
-			m.CreatedAt = *createdAt
+			m.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		}
 		out = append(out, m)
 	}
@@ -521,7 +521,7 @@ func TenantInviteAcceptHandler(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(ctx)
 
 	var inv inviteRow
-	var expires *string
+	var expires *time.Time
 	err = tx.QueryRow(ctx,
 		`SELECT id, tenant_id, email, role, expires_at
 		 FROM tenant_invites

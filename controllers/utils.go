@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"os"
 	"sync"
@@ -11,8 +12,10 @@ import (
 )
 
 var (
-	dbPool *pgxpool.Pool
-	dbOnce sync.Once
+	dbPool    *pgxpool.Pool
+	dbOnce    sync.Once
+	talosPool *pgxpool.Pool
+	talosOnce sync.Once
 )
 
 func kawaiDB() *pgxpool.Pool {
@@ -28,6 +31,24 @@ func kawaiDB() *pgxpool.Pool {
 		dbPool = pool
 	})
 	return dbPool
+}
+
+// talosDB returns the Talos (API-key metering/quota) pool. Best-effort: if
+// TALOS_DSN is unset the pool is nil and callers must nil-check before use.
+func talosDB() *pgxpool.Pool {
+	talosOnce.Do(func() {
+		dsn := os.Getenv("TALOS_DSN")
+		if dsn == "" {
+			return
+		}
+		pool, err := pgxpool.New(context.Background(), dsn)
+		if err != nil {
+			slog.Error("talosDB: init pool", "err", err)
+			return
+		}
+		talosPool = pool
+	})
+	return talosPool
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
