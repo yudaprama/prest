@@ -1,9 +1,9 @@
 package postgres
 
 import (
-	"github.com/prest/prest/v2/adapters/postgres/internal/connection"
+	"database/sql"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/prest/prest/v2/adapters/postgres/internal/connection"
 )
 
 // GetURI postgres connection URI
@@ -12,7 +12,7 @@ func GetURI(DBName string) string {
 }
 
 // Get get postgres connection
-func Get() (*sqlx.DB, error) {
+func Get() (*sql.DB, error) {
 	return connection.Get()
 }
 
@@ -21,7 +21,7 @@ func Get() (*sqlx.DB, error) {
 // Unlike Get(), it does not depend on the shared "current database" global, so
 // it is safe for handlers mounted outside the per-CRUD middleware chain (which
 // never calls SetDatabase). Returns an error if the name is not in the pool.
-func GetByName(name string) (*sqlx.DB, error) {
+func GetByName(name string) (*sql.DB, error) {
 	return connection.GetFromPool(name)
 }
 
@@ -31,7 +31,7 @@ func GetPool() *connection.Pool {
 }
 
 // AddDatabaseToPool add connection to pool
-func AddDatabaseToPool(name string) (*sqlx.DB, error) {
+func AddDatabaseToPool(name string) (*sql.DB, error) {
 	return connection.AddDatabaseToPool(name)
 }
 
@@ -47,12 +47,12 @@ func SetRealName(logical, actual string) {
 // it in the pool keyed by the DSN itself. This exposes connection.AddURI
 // so that packages outside adapters (e.g. cmd/prestd) can register
 // multiple independently-configured connection strings at startup.
-func AddURI(name, dsn string) (*sqlx.DB, error) {
+func AddURI(name, dsn string) (*sql.DB, error) {
 	return connection.AddURI(name, dsn)
 }
 
 // MustGet get postgres connection
-func MustGet() *sqlx.DB {
+func MustGet() *sql.DB {
 	return connection.MustGet()
 }
 

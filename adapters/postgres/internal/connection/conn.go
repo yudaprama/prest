@@ -2,6 +2,7 @@ package connection
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -13,9 +14,7 @@ import (
 
 	"github.com/prest/prest/v2/config"
 
-	"github.com/jmoiron/sqlx"
-	// Used pg drive on sqlx
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 var (
@@ -26,8 +25,21 @@ var (
 // Pool struct
 type Pool struct {
 	Mtx      *sync.Mutex
-	DB       map[string]*sqlx.DB
+	DB       map[string]*sql.DB
 	RealName map[string]string // logical name → actual database name for SQL qualification
+}
+
+// openAndPing opens a pgx connection and verifies it with Ping.
+func openAndPing(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return db, nil
 }
 
 // poolKey returns a stable, safe map key for a DSN. The raw DSN (which
@@ -74,7 +86,7 @@ func GetURI(DBName string) string {
 }
 
 // Get get Postgres connection adding it to the pool if needed
-func Get() (*sqlx.DB, error) {
+func Get() (*sql.DB, error) {
 	DB := getDatabaseFromPool(GetDatabase())
 	// Connection is already in the pool
 	if DB != nil {
@@ -89,7 +101,7 @@ func Get() (*sqlx.DB, error) {
 
 // GetFromPool tries to get the db name from the db pool
 // will return error if not found
-func GetFromPool(dbName string) (*sqlx.DB, error) {
+func GetFromPool(dbName string) (*sql.DB, error) {
 	DB := getDatabaseFromPool(dbName)
 	if DB == nil {
 		return nil, errors.New("db not found in pool")
@@ -100,11 +112,11 @@ func GetFromPool(dbName string) (*sqlx.DB, error) {
 // GetPool of connection
 func GetPool() *Pool {
 	if pool == nil {
-		pool = &Pool{
-			Mtx:      &sync.Mutex{},
-			DB:       make(map[string]*sqlx.DB),
-			RealName: make(map[string]string),
-		}
+	pool = &Pool{
+		Mtx:      &sync.Mutex{},
+		DB:       make(map[string]*sql.DB),
+		RealName: make(map[string]string),
+	}
 	}
 	return pool
 }
@@ -134,7 +146,7 @@ func ResolveDBName(name string) string {
 	return name
 }
 
-func getDatabaseFromPool(name string) *sqlx.DB {
+func getDatabaseFromPool(name string) *sql.DB {
 	p := GetPool()
 	p.Mtx.Lock()
 	DB := p.DB[poolKey(GetURI(name))]
@@ -146,7 +158,7 @@ func getDatabaseFromPool(name string) *sqlx.DB {
 }
 
 // AddDatabaseToPool create and add connection to the pool
-func AddDatabaseToPool(name string) (*sqlx.DB, error) {
+func AddDatabaseToPool(name string) (*sql.DB, error) {
 	dsn := GetURI(name)
 	key := poolKey(dsn)
 	p := GetPool()
@@ -160,7 +172,7 @@ func AddDatabaseToPool(name string) (*sqlx.DB, error) {
 	p.Mtx.Unlock()
 
 	// Slow path: connect without holding the lock
-	DB, err := sqlx.Connect("postgres", dsn)
+	DB, err := openAndPing(dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -180,9 +192,9 @@ func AddDatabaseToPool(name string) (*sqlx.DB, error) {
 }
 
 // MustGet get postgres connection
-func MustGet() *sqlx.DB {
+func MustGet() *sql.DB {
 	var err error
-	var DB *sqlx.DB
+	var DB *sql.DB
 
 	DB, err = Get()
 	if err != nil {
@@ -198,7 +210,7 @@ func MustGet() *sqlx.DB {
 // from the global config and therefore supports fully independent connection
 // strings supplied by the caller (multiple databases on different hosts,
 // separate credentials, etc.).
-func AddURI(name, dsn string) (*sqlx.DB, error) {
+func AddURI(name, dsn string) (*sql.DB, error) {
 	if name == "" {
 		name = dsn
 	}
@@ -223,7 +235,7 @@ func AddURI(name, dsn string) (*sqlx.DB, error) {
 	p.Mtx.Unlock()
 
 	// Slow path: connect without holding the lock
-	DB, err := sqlx.Connect("postgres", dsn)
+	DB, err := openAndPing(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("connect %q: %w", name, err)
 	}
@@ -261,7 +273,7 @@ func SetRealName(logical, actual string) {
 }
 
 // getFromPoolByDSN looks up a connection by its raw DSN string.
-func getFromPoolByDSN(dsn string) (*sqlx.DB, error) {
+func getFromPoolByDSN(dsn string) (*sql.DB, error) {
 	p := GetPool()
 	p.Mtx.Lock()
 	DB := p.DB[poolKey(dsn)]

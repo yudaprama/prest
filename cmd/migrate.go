@@ -9,8 +9,8 @@ import (
 	"github.com/prest/prest/v2/config"
 
 	"github.com/spf13/cobra"
-	// pq driver
-	_ "github.com/lib/pq"
+	// pgx driver
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 var (

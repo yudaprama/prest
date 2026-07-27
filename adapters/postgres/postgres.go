@@ -29,8 +29,8 @@ import (
 	"github.com/prest/prest/v2/internal/ident"
 	"github.com/prest/prest/v2/template"
 
-	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pkg/errors"
 )
 
@@ -59,7 +59,7 @@ type Stmt struct {
 }
 
 // Prepare statement
-func (s *Stmt) Prepare(db *sqlx.DB, tx *sql.Tx, SQL string) (statement *sql.Stmt, err error) {
+func (s *Stmt) Prepare(db *sql.DB, tx *sql.Tx, SQL string) (statement *sql.Stmt, err error) {
 	if config.PrestConf.PGCache && (tx == nil) {
 		var exists bool
 		s.Mtx.Lock()
@@ -161,7 +161,7 @@ func (adapter *Postgres) GetTransactionCtx(ctx context.Context) (tx *sql.Tx, err
 }
 
 // Prepare statement func
-func Prepare(db *sqlx.DB, SQL string) (stmt *sql.Stmt, err error) {
+func Prepare(db *sql.DB, SQL string) (stmt *sql.Stmt, err error) {
 	return GetStmt().Prepare(db, nil, SQL)
 }
 
@@ -1087,136 +1087,88 @@ func (adapter *Postgres) PaginateIfPossible(r *http.Request) (paginatedQuery str
 	return template.LimitOffset(fmt.Sprint(pageNumber), fmt.Sprint(pageSize))
 }
 
-// BatchInsertCopy execute batch insert sql into a table unsing copy
+// copyRows reshapes flat values (chunked by len(keys)) into [][]any for
+// pgx CopyFrom. keys are unquoted in place (they arrive quoted from
+// ParseBatchInsertRequest).
+func copyRows(keys []string, values []interface{}) ([][]any, []string, error) {
+	for i := range keys {
+		if strings.HasPrefix(keys[i], `"`) {
+			v, err := strconv.Unquote(keys[i])
+			if err != nil {
+				return nil, nil, err
+			}
+			keys[i] = v
+		}
+	}
+	nCols := len(keys)
+	rows := make([][]any, 0, len(values)/nCols)
+	for i := 0; i+nCols <= len(values); i += nCols {
+		row := make([]any, nCols)
+		for j := 0; j < nCols; j++ {
+			row[j] = values[i+j]
+		}
+		rows = append(rows, row)
+	}
+	return rows, keys, nil
+}
+
+// execCopy runs pgx CopyFrom on the given database connection.
+func execCopy(ctx context.Context, db *sql.DB, schema, table string, keys []string, rows [][]any) (int64, error) {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+	var copied int64
+	err = conn.Raw(func(driverConn any) error {
+		pgxConn := driverConn.(*stdlib.Conn).Conn()
+		var cerr error
+		copied, cerr = pgxConn.CopyFrom(ctx, pgx.Identifier{schema, table}, keys, pgx.CopyFromRows(rows))
+		return cerr
+	})
+	return copied, err
+}
+
+// BatchInsertCopy execute batch insert sql into a table using COPY.
 func (adapter *Postgres) BatchInsertCopy(dbname, schema, table string, keys []string, values ...interface{}) (sc adapters.Scanner) {
 	db, err := connection.Get()
 	if err != nil {
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	tx, err := db.Begin()
+	rows, cleanKeys, err := copyRows(keys, values)
 	if err != nil {
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	defer func() {
-		var txerr error
-		if err != nil {
-			txerr = tx.Rollback()
-			if txerr != nil {
-				slog.Error("log details", "err", txerr)
-				return
-			}
-			return
-		}
-		txerr = tx.Commit()
-		if txerr != nil {
-			slog.Error("log details", "err", txerr)
-			return
-		}
-	}()
-	for i := range keys {
-		if strings.HasPrefix(keys[i], `"`) {
-			keys[i], err = strconv.Unquote(keys[i])
-			if err != nil {
-				slog.Error("log details", "err", err)
-				return &scanner.PrestScanner{Error: err}
-			}
-		}
-	}
-	stmt, err := tx.Prepare(pq.CopyInSchema(schema, table, keys...))
-	if err != nil {
-		slog.Info("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	initOffSet := 0
-	limitOffset := len(keys)
-	for limitOffset <= len(values) {
-		_, err = stmt.Exec(values[initOffSet:limitOffset]...)
-		if err != nil {
-			slog.Error("log details", "err", err)
-			return &scanner.PrestScanner{Error: err}
-		}
-		initOffSet = limitOffset
-		limitOffset += len(keys)
-	}
-	_, err = stmt.Exec()
+	copied, err := execCopy(context.Background(), db, schema, table, cleanKeys, rows)
 	if err != nil {
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	err = stmt.Close()
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	return &scanner.PrestScanner{}
+	data, _ := json.Marshal(map[string]interface{}{"rows_affected": copied})
+	return &scanner.PrestScanner{Buff: bytes.NewBuffer(data)}
 }
 
-// BatchInsertCopyCtx execute batch insert sql into a table unsing copy
+// BatchInsertCopyCtx execute batch insert sql into a table using COPY.
 func (adapter *Postgres) BatchInsertCopyCtx(ctx context.Context, dbname, schema, table string, keys []string, values ...interface{}) (sc adapters.Scanner) {
 	db, err := getDBFromCtx(ctx)
 	if err != nil {
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	tx, err := db.Begin()
+	rows, cleanKeys, err := copyRows(keys, values)
 	if err != nil {
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	defer func() {
-		var txerr error
-		if err != nil {
-			txerr = tx.Rollback()
-			if txerr != nil {
-				slog.Error("log details", "err", txerr)
-				return
-			}
-			return
-		}
-		txerr = tx.Commit()
-		if txerr != nil {
-			slog.Error("log details", "err", txerr)
-			return
-		}
-	}()
-	for i := range keys {
-		if strings.HasPrefix(keys[i], `"`) {
-			keys[i], err = strconv.Unquote(keys[i])
-			if err != nil {
-				slog.Error("log details", "err", err)
-				return &scanner.PrestScanner{Error: err}
-			}
-		}
-	}
-	stmt, err := tx.Prepare(pq.CopyInSchema(schema, table, keys...))
+	copied, err := execCopy(ctx, db, schema, table, cleanKeys, rows)
 	if err != nil {
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	initOffSet := 0
-	limitOffset := len(keys)
-	for limitOffset <= len(values) {
-		_, err = stmt.Exec(values[initOffSet:limitOffset]...)
-		if err != nil {
-			slog.Error("log details", "err", err)
-			return &scanner.PrestScanner{Error: err}
-		}
-		initOffSet = limitOffset
-		limitOffset += len(keys)
-	}
-	_, err = stmt.Exec()
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	err = stmt.Close()
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	return &scanner.PrestScanner{}
+	data, _ := json.Marshal(map[string]interface{}{"rows_affected": copied})
+	return &scanner.PrestScanner{Buff: bytes.NewBuffer(data)}
 }
 
 // BatchInsertValues execute batch insert sql into a table unsing multi values
@@ -1305,7 +1257,7 @@ func (adapter *Postgres) BatchInsertValuesCtx(ctx context.Context, SQL string, v
 	}
 }
 
-func (adapter *Postgres) fullInsert(db *sqlx.DB, tx *sql.Tx, SQL string) (stmt *sql.Stmt, err error) {
+func (adapter *Postgres) fullInsert(db *sql.DB, tx *sql.Tx, SQL string) (stmt *sql.Stmt, err error) {
 	tableName := insertTableNameQuotesRegex.FindStringSubmatch(SQL)
 	if len(tableName) < 2 {
 		tableName = insertTableNameRegex.FindStringSubmatch(SQL)
@@ -1348,7 +1300,7 @@ func (adapter *Postgres) InsertWithTransaction(tx *sql.Tx, SQL string, params ..
 	return adapter.insert(nil, tx, SQL, params...)
 }
 
-func (adapter *Postgres) insert(db *sqlx.DB, tx *sql.Tx, SQL string, params ...interface{}) (sc adapters.Scanner) {
+func (adapter *Postgres) insert(db *sql.DB, tx *sql.Tx, SQL string, params ...interface{}) (sc adapters.Scanner) {
 	stmt, err := adapter.fullInsert(db, tx, SQL)
 	if err != nil {
 		slog.Error("log details", "err", err)
@@ -1388,7 +1340,7 @@ func (adapter *Postgres) DeleteWithTransaction(tx *sql.Tx, SQL string, params ..
 	return adapter.delete(nil, tx, SQL, params...)
 }
 
-func (adapter *Postgres) delete(db *sqlx.DB, tx *sql.Tx, SQL string, params ...interface{}) (sc adapters.Scanner) {
+func (adapter *Postgres) delete(db *sql.DB, tx *sql.Tx, SQL string, params ...interface{}) (sc adapters.Scanner) {
 	slog.Debug("generated SQL", "sql", SQL, "parameters", params)
 	var stmt *sql.Stmt
 	var err error
@@ -1480,7 +1432,7 @@ func (adapter *Postgres) UpdateWithTransaction(tx *sql.Tx, SQL string, params ..
 	return adapter.update(nil, tx, SQL, params...)
 }
 
-func (adapter *Postgres) update(db *sqlx.DB, tx *sql.Tx, SQL string, params ...interface{}) (sc adapters.Scanner) {
+func (adapter *Postgres) update(db *sql.DB, tx *sql.Tx, SQL string, params ...interface{}) (sc adapters.Scanner) {
 	var stmt *sql.Stmt
 	var err error
 	if tx != nil {
@@ -2057,7 +2009,7 @@ func (adapter *Postgres) GetDatabase() string {
 // getDBFromCtx tries to get the DB from context adding it to the pool if not
 // present, unless DB name is unset in the context - it will then fallback to
 // the current DB has been set via `SetDatabase(...)`
-func getDBFromCtx(ctx context.Context) (db *sqlx.DB, err error) {
+func getDBFromCtx(ctx context.Context) (db *sql.DB, err error) {
 	dbName, ok := ctx.Value(pctx.DBNameKey).(string)
 	if ok {
 		DB, err := connection.GetFromPool(dbName)

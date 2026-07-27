@@ -38,7 +38,7 @@ func TestMultipleDSNs(t *testing.T) {
 			t.Fatalf("[%s] ping failed: %v", name, err)
 		}
 		var v string
-		if err := db.Get(&v, "select current_database()"); err != nil {
+		if err := db.QueryRow("select current_database()").Scan(&v); err != nil {
 			t.Fatalf("[%s] query failed: %v", name, err)
 		}
 		t.Logf("[%s] OK db=%s", name, v)
