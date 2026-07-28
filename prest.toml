@@ -28,12 +28,6 @@ table = "billing_balances"
 column = "actor_id"
 
 [[auth.user_id_filters]]
-database = "plano"
-schema = "public"
-table = "billing_audit_log"
-column = "actor_id"
-
-[[auth.user_id_filters]]
 database = "kratos"
 schema = "public"
 table = "sessions"

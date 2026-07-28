@@ -39,7 +39,7 @@ import (
 //
 // Out of scope (require separate work): physical file bytes in AList storage,
 // shares table (no user_id column), agent_templates (global), river_* (job
-// queue), MuninnDB engrams, yarsew billing audit.
+// queue), MuninnDB engrams.
 func AccountDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
