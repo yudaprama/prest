@@ -1,0 +1,19 @@
+controllers/account.go
+  s_e792c5c6974feb::t_01d040811144ea 42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "303198a4fa3c8a2cc1fa22fbc7923de5fea2e89e",
+  "prompts": {},
+  "sessions": {
+    "s_e792c5c6974feb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_05ae744baffeitjPMeWYykcL6H",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
