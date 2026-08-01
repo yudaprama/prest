@@ -153,6 +153,12 @@ func TenantsCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	db := kawaiDB()
 
+	// Check if this is the user's first workspace (for profile ingestion).
+	var memberCount int
+	_ = db.QueryRow(r.Context(),
+		`SELECT count(*) FROM tenant_members WHERE user_id = $1`, u.ID).Scan(&memberCount)
+	isFirstWorkspace := memberCount == 0
+
 	id, err := newUUID()
 	if err != nil {
 		slog.Error("tenants create: uuid", "err", err)
@@ -190,6 +196,14 @@ func TenantsCreateHandler(w http.ResponseWriter, r *http.Request) {
 		slog.Error("tenants create: commit", "err", err)
 		writeJSONError(w, http.StatusBadGateway, "could not create workspace")
 		return
+	}
+
+	// Ingest profile to memory on first workspace (best-effort, non-blocking).
+	// Use context.Background() because r.Context() is cancelled when the
+	// handler returns — the goroutine needs a live context for the
+	// MuninnDB HTTP call.
+	if isFirstWorkspace && u.Email != "" {
+		go ingestProfileToMemory(context.Background(), id, u.ID, u.Email)
 	}
 
 	writeJSON(w, http.StatusOK, tenantRow{ID: id, Name: body.Name, Slug: body.Slug, CreatedBy: u.ID})
