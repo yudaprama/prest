@@ -1,0 +1,26 @@
+go.mod
+  s_83df5d2679f553::t_a4477afe82e656 74-78
+CLAUDE.md
+  s_83df5d2679f553::t_1aba209b5ca0ab 20-21
+controllers/memory.go
+  s_83df5d2679f553::t_a0f2da7cce0ed4 42-45
+  s_83df5d2679f553::t_8d0bc8517cf2de 20-22,29
+  s_83df5d2679f553::t_045822dabc3ae9 46
+  s_83df5d2679f553::t_acddf4a4edb17d 64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "7fec9265f72ef97c22eaaea3055131b962f93b11",
+  "prompts": {},
+  "sessions": {
+    "s_83df5d2679f553": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_03f6e1c34ffehg20A4peYRU9d7",
+        "model": "glm-5.2"
+      },
+      "human_author": "yudaprama <yudhaprama@icloud.com>"
+    }
+  }
+}
