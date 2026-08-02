@@ -17,13 +17,16 @@ var (
 
 // muninnClientFromEnv returns a shared MuninnDB client, or nil when
 // MUNINN_URL is unset (dev/CI). The client is created once and reused.
+// Auth is via the edge-auth trust header (set per-request by callers through
+// muninn.WithTrustedVaultHeader), not a bearer token — MuninnDB must run in
+// edge-auth mode (MUNINN_TRUST_EDGE_HEADER) for writes to be authorized.
 func muninnClientFromEnv() *muninn.Client {
 	muninnClientOnce.Do(func() {
 		url := os.Getenv("MUNINN_URL")
 		if url == "" {
 			return
 		}
-		muninnClient = muninn.NewClient(url, os.Getenv("MUNINN_TOKEN"))
+		muninnClient = muninn.NewClient(url, "")
 	})
 	return muninnClient
 }
@@ -36,6 +39,11 @@ func ingestProfileToMemory(ctx context.Context, tenantID, userID, email string) 
 	// Detach from the request context so the write survives after the HTTP
 	// response is sent (request ctx is cancelled at that point).
 	ctx = context.WithoutCancel(ctx)
+	// Authorize via the edge-auth trust header — the same mechanism the egents
+	// use for reads — so this write is bound to the named tenant rather than
+	// relying solely on a global bearer token. Honored when MuninnDB runs in
+	// edge-auth mode (MUNINN_TRUST_EDGE_HEADER); harmless otherwise.
+	ctx = muninn.WithTrustedVaultHeader(ctx, muninn.TrustEdgeHeaderFromEnv(), tenantID)
 
 	client := muninnClientFromEnv()
 	if client == nil {
@@ -53,8 +61,7 @@ func ingestProfileToMemory(ctx context.Context, tenantID, userID, email string) 
 	}
 
 	for key, value := range facts {
-		tags := []string{"user:" + userID, "profile"}
-		if _, err := client.Write(ctx, tenantID, key, value, tags); err != nil {
+		if _, err := client.Write(ctx, tenantID, key, value, muninn.ProfileTags(key, userID)); err != nil {
 			slog.Warn("ingest profile: write failed", "key", key, "err", err)
 		}
 	}

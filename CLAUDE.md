@@ -17,6 +17,8 @@ This fork adds LobeHub server-side CRUD/query endpoints to pRESTd, with multi-te
 | `config/config.go::loadDotEnv` | Calls `godotenv.Load()` before viper. `.env` in CWD is auto-loaded (absent file = silent no-op). |
 | `config/config.go::renderConfig` | Reads YAML config and resolves `$VAR` placeholders from the process environment before parsing. |
 | `etc/queries/lobehub/*.read.sql` | Tier 2 SQL templates (joined/aggregate reads). |
+| `controllers/memory.go::ingestProfileToMemory` | Writes registration-time profile facts (email + derived name) to MuninnDB on first-workspace creation, tagged via the shared SDK convention (`muninn.ProfileTags`). Best-effort, non-blocking. **Auth is edge-auth** (trust header via `muninn.WithTrustedVaultHeader`), not a bearer token — MuninnDB must run in edge-auth mode (`MUNINN_TRUST_EDGE_HEADER`) or the write no-ops. |
+| `go.mod` muninn `replace` | `replace github.com/scrypster/muninndb/sdk/go/muninn => ../muninndb/sdk/go/muninn` builds the SDK from the local fork so pREST picks up the shared convention helpers. For a **standalone release** (goreleaser building from `prest/` alone), the muninn SDK fork must be published and the replace dropped — same pattern as the egents. |
 | `scripts/release.sh` | One-shot release — `./scripts/release.sh` to auto-bump and ship. |
 | `RELEASE.md` | 60-second release guide for humans and agents. |
 

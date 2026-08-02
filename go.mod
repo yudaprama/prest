@@ -71,3 +71,8 @@ require (
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// Build the MuninnDB Go SDK from the local fork so pREST picks up the
+// shared identity-tag convention helpers (muninn.ProfileTags, etc.) used by
+// ingestProfileToMemory. The egents consume the same local replace.
+replace github.com/scrypster/muninndb/sdk/go/muninn => ../muninndb/sdk/go/muninn
