@@ -113,8 +113,7 @@ are wired up:
 - `[[auth.workspace_id_filters]]` — same shape as
   `[[auth.user_id_filters]]`, but injects `WHERE <column> IN (<list>)`
   with the list coming from the `WorkspaceIDsKey` request context,
-  resolved once per request by `WorkspaceMembershipResolver` via Ory
-  Keto (v0.12 `ListObjects`). Currently scoped to the four workspace
+  resolved from pREST `tenant_members` membership data. Currently scoped to the four workspace
   tables: `workspaces`, `workspace_members`, `workspace_invitations`,
   `workspace_audit_logs`. Activation is gated by
   `[auth] workspace_filters_enabled = false` (Phase 2 default).
@@ -131,9 +130,8 @@ optional query parameters:
 
 | Query param       | When set                                                                                                                   | Template branch                              |
 |-------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------|
-| `workspaceId=X`   | single workspace, server-authorized via Keto `Check` (`view` permission) by `WorkspaceAuthzGate` (Phase 1, behind `[keto] enabled = true`) | `WHERE <col> = {{ sqlVal "workspaceId" }}`   |
-| `workspaceScope=all` | cross-workspace mode, list auto-resolved via Keto `ListObjects` (Phase 2, behind `[auth] workspace_filters_enabled = true`) | `WHERE {{ workspaceScopeIn "<col>" }}`       |
-| (neither)         | personal scope                                                                                                              | `WHERE user_id = {{ sqlVal "userId" }} AND <col> IS NULL` |
+| active tenant | server-authorized by Oathkeeper `remote_json` → pREST `/authz/workspace`; supplied to pREST as `X-Tenant-Id` | `WHERE <col> = {{ sqlVal "workspaceId" }}` |
+| membership scope | workspace list resolved from pREST `tenant_members` | `WHERE {{ workspaceScopeIn "<col>" }}` |
 
 Single workspace takes precedence over cross-workspace mode.
 

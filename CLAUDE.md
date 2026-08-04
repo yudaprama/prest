@@ -10,9 +10,9 @@ This fork adds LobeHub server-side CRUD/query endpoints to pRESTd, with multi-te
 | `controllers/sql.go::extractContextValues` | Copies `pctx.UserIDKey` into template data as the `userId` variable so SQL templates can use `{{ sqlVal "userId" }}`. |
 | `controllers/sql_userid_test.go` | Tests for the helper above. |
 | _(runtime config)_ | The single pREST config is `prest.yaml` (YAML format with `$ENV_VAR` syntax), loaded via `PREST_CONF=./prest.yaml`. pREST resolves `$VAR` placeholders from the process environment at startup. No `PREST_PG_URL_*` injection needed — DSN env vars are read directly. |
-| `context/keys.go::WorkspaceIDActiveKey` | Context key carrying the single active workspace id (from the `X-Workspace-Id` header) for the compat filter mode. |
-| `middlewares/workspaceactive.go` | `WorkspaceActiveMiddleware` — copies `X-Workspace-Id` into `WorkspaceIDActiveKey` (set by the BFF after its Keto Check). |
-| `adapters/postgres/workspacefilter.go::ResolveWorkspaceCompat` + `postgres.go::WhereByRequest` | Active-workspace ("compat") filter: for tables in `[[auth.workspace_compat_filters]]`, emits `workspace_id = $ws` (active) or `user_id = $uid AND workspace_id IS NULL` (personal) — mirrors LobeHub `buildWorkspaceWhere`. Suppresses the plain `user_id` filter for those tables. No Keto call on the read path. |
+| `context/keys.go::WorkspaceIDActiveKey` | Context key carrying the single active workspace id (from the edge-injected `X-Tenant-Id` header) for the compat filter mode. |
+| `middlewares/workspaceactive.go` | `WorkspaceActiveMiddleware` — copies the edge-authorized `X-Tenant-Id` into `WorkspaceIDActiveKey`. |
+| `adapters/postgres/workspacefilter.go::ResolveWorkspaceCompat` + `postgres.go::WhereByRequest` | Active-workspace ("compat") filter: for tables in `[[auth.workspace_compat_filters]]`, emits the active tenant workspace scope from edge-injected `X-Tenant-Id`. Suppresses the plain `user_id` filter for those tables. No Keto call on the read path. |
 | `config/config.go::WorkspaceCompatConfig` + `ValidateWorkspaceCompat` | Config struct for compat entries + startup check rejecting a table listed in both `user_id_filters` and `workspace_compat_filters`. |
 | `config/config.go::loadDotEnv` | Calls `godotenv.Load()` before viper. `.env` in CWD is auto-loaded (absent file = silent no-op). |
 | `config/config.go::renderConfig` | Reads YAML config and resolves `$VAR` placeholders from the process environment before parsing. |
@@ -80,13 +80,15 @@ other entry uses `user_id`. Two batches added Jun 16 2026:
 
 ## Workspace scope — Phase 1 gate REMOVED (→ Oathkeeper); Phase 2 + Phase 3 data-scope remain
 
-LobeHub tables carry a `workspace_id` column for shared workspaces. Authentication and single-workspace authorization (the old Phase 1 gate) now live in **Ory Oathkeeper** (the edge proxy on :4455); pREST keeps only the **data-scope** mechanisms:
+LobeHub tables carry a `workspace_id` column for shared workspaces. Authentication and single-workspace authorization now live in **Ory Oathkeeper** (the edge proxy on :4455) plus pREST's `tenant_members` check; pREST keeps the **data-scope** mechanisms:
 
-- **Phase 1 (REMOVED)**: the `WorkspaceAuthzGate` middleware and the `/authz/check` endpoint have been deleted. Single-workspace authorization is now an Oathkeeper `remote_json` → Keto `Check` (gated rule in `oathkeeper-access-rules.yml`, enabled when Keto is up). The `?workspaceId=` → `pctx.WorkspaceIDKey` template-var path is now vestigial (always empty); use the Phase 3 active-workspace header for single-workspace scoping.
-- **Phase 2** (`[auth] workspace_filters_enabled`): `WorkspaceMembershipResolver` resolves the caller's workspace list via Keto `ListObjects` (LRU-cached 30s) and stores it in `pctx.WorkspaceIDsKey`. The postgres adapter injects `WHERE workspace_id IN (...)` on the 4 workspace tables configured in `[[auth.workspace_id_filters]]`. The `workspaceScopeIn` template helper emits the same IN-clause for cross-workspace Tier 2 reads.
-- **Phase 3 — active-workspace ("compat")** (`[[auth.workspace_compat_filters]]` + `[auth] workspace_active_header`): for workspace-capable **content** tables (`documents`, `files`, `agents`, `sessions`, `topics`, `messages`), mirrors LobeHub `buildWorkspaceWhere` exactly — `workspace_id = $ws` when Oathkeeper injects `X-Workspace-Id` (after its own Keto Check), else `user_id = $uid AND workspace_id IS NULL`. Distinct from Phase 2: single active workspace, not union; and **no Keto call on the read path** (the header is trusted, pre-authorized). A table in `workspace_compat_filters` is removed from `user_id_filters`; `ValidateWorkspaceCompat` rejects listing it in both. Activation requires deploying a compat-enabled binary before moving the 6 tables in the runtime config (otherwise they'd be unscoped on older binaries). **Activated 2026-06-26**: the 6 content tables now live in `[[auth.workspace_compat_filters]]` in the root `prest.toml`; planoctl deploys `prest v2.2.1` (compat-enabled), so the binary-before-config ordering is satisfied.
+- **Phase 1 (REMOVED)**: the `WorkspaceAuthzGate` middleware and the `/authz/check` endpoint have been deleted. Single-workspace authorization is now Oathkeeper `remote_json` → pREST `/authz/workspace`, which checks `tenant_members`. The `?workspaceId=` → `pctx.WorkspaceIDKey` template-var path is vestigial; use the edge-injected active tenant for single-workspace scoping.
+- **Phase 2** (`[auth] workspace_filters_enabled`): membership-scoped workspace metadata is resolved from pREST's `tenant_members` table and the postgres adapter injects the configured workspace filters.
+- **Phase 3 — active-workspace ("compat")** (`[[auth.workspace_compat_filters]]` + `[auth] workspace_active_header`): for workspace-capable content tables, emits `workspace_id = $ws` when Oathkeeper injects `X-Tenant-Id`. The header is trusted because it is derived from Kratos session metadata and membership-authorized at the edge.
 
-All phases are gated off by default. See `WORKSPACE_SCOPE_IMPLEMENTATION_PLAN.md` for the full design.
+The old phase labels describe the migration history; the current deployed boundary is
+Oathkeeper plus pREST `tenant_members`. See the repository `AGENTS.md` for the current
+workspace contract. `WORKSPACE_SCOPE_IMPLEMENTATION_PLAN.md` is historical design context.
 
 ## Views as an alternative to SQL templates
 
