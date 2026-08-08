@@ -953,41 +953,7 @@ func (adapter *Postgres) CountByRequest(req *http.Request) (countQuery string, e
 	return
 }
 
-// QueryCtx process queries using the DB name from Context
-//
-// allows setting timeout
-func (adapter *Postgres) QueryCtx(ctx context.Context, SQL string, params ...interface{}) (sc adapters.Scanner) {
-	// use the db_name that was set on request to avoid runtime collisions
-	db, err := getDBFromCtx(ctx)
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	SQL = fmt.Sprintf("SELECT %s(s) FROM (%s) s", config.PrestConf.JSONAggType, SQL)
-	slog.Debug("generated SQL", "sql", SQL, "parameters", params)
-	p, err := Prepare(db, SQL)
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	var jsonData []byte
-	err = p.QueryRowContext(ctx, params...).Scan(&jsonData)
-	if len(jsonData) == 0 {
-		jsonData = []byte("[]")
-	}
-	return &scanner.PrestScanner{
-		Error:   err,
-		Buff:    bytes.NewBuffer(jsonData),
-		IsQuery: true,
-	}
-}
-
-func (adapter *Postgres) Query(SQL string, params ...interface{}) (sc adapters.Scanner) {
-	db, err := connection.Get()
-	if err != nil {
-		slog.Info("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
+func (adapter *Postgres) queryImpl(db *sql.DB, SQL string, params ...interface{}) adapters.Scanner {
 	SQL = fmt.Sprintf("SELECT %s(s) FROM (%s) s", config.PrestConf.JSONAggType, SQL)
 	slog.Debug("generated SQL", "sql", SQL, "parameters", params)
 	p, err := Prepare(db, SQL)
@@ -1006,13 +972,29 @@ func (adapter *Postgres) Query(SQL string, params ...interface{}) (sc adapters.S
 	}
 }
 
-// QueryCount process queries with count
-func (adapter *Postgres) QueryCount(SQL string, params ...interface{}) (sc adapters.Scanner) {
-	db, err := connection.Get()
+// QueryCtx process queries using the DB name from Context
+//
+// allows setting timeout
+func (adapter *Postgres) QueryCtx(ctx context.Context, SQL string, params ...interface{}) (sc adapters.Scanner) {
+	// use the db_name that was set on request to avoid runtime collisions
+	db, err := getDBFromCtx(ctx)
 	if err != nil {
+		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
+	return adapter.queryImpl(db, SQL, params...)
+}
 
+func (adapter *Postgres) Query(SQL string, params ...interface{}) (sc adapters.Scanner) {
+	db, err := connection.Get()
+	if err != nil {
+		slog.Info("log details", "err", err)
+		return &scanner.PrestScanner{Error: err}
+	}
+	return adapter.queryImpl(db, SQL, params...)
+}
+
+func (adapter *Postgres) queryCountImpl(db *sql.DB, SQL string, params ...interface{}) adapters.Scanner {
 	slog.Debug("generated SQL", "sql", SQL, "parameters", params)
 	p, err := Prepare(db, SQL)
 	if err != nil {
@@ -1036,34 +1018,22 @@ func (adapter *Postgres) QueryCount(SQL string, params ...interface{}) (sc adapt
 }
 
 // QueryCount process queries with count
+func (adapter *Postgres) QueryCount(SQL string, params ...interface{}) (sc adapters.Scanner) {
+	db, err := connection.Get()
+	if err != nil {
+		return &scanner.PrestScanner{Error: err}
+	}
+	return adapter.queryCountImpl(db, SQL, params...)
+}
+
+// QueryCountCtx process queries with count using the DB name from Context
 func (adapter *Postgres) QueryCountCtx(ctx context.Context, SQL string, params ...interface{}) (sc adapters.Scanner) {
 	db, err := getDBFromCtx(ctx)
 	if err != nil {
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	slog.Debug("generated SQL", "sql", SQL, "parameters", params)
-	p, err := Prepare(db, SQL)
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-
-	var result struct {
-		Count int64 `json:"count"`
-	}
-
-	row := p.QueryRow(params...)
-	if err = row.Scan(&result.Count); err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	var byt []byte
-	byt, err = json.Marshal(result)
-	return &scanner.PrestScanner{
-		Error: err,
-		Buff:  bytes.NewBuffer(byt),
-	}
+	return adapter.queryCountImpl(db, SQL, params...)
 }
 
 // PaginateIfPossible when passing non-valid paging parameters (conversion to integer) the query will be made with default value
@@ -1136,18 +1106,7 @@ func (adapter *Postgres) BatchInsertCopy(dbname, schema, table string, keys []st
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	rows, cleanKeys, err := copyRows(keys, values)
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	copied, err := execCopy(context.Background(), db, schema, table, cleanKeys, rows)
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	data, _ := json.Marshal(map[string]interface{}{"rows_affected": copied})
-	return &scanner.PrestScanner{Buff: bytes.NewBuffer(data)}
+	return adapter.batchInsertCopyImpl(db, context.Background(), dbname, schema, table, keys, values...)
 }
 
 // BatchInsertCopyCtx execute batch insert sql into a table using COPY.
@@ -1157,6 +1116,10 @@ func (adapter *Postgres) BatchInsertCopyCtx(ctx context.Context, dbname, schema,
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
+	return adapter.batchInsertCopyImpl(db, ctx, dbname, schema, table, keys, values...)
+}
+
+func (adapter *Postgres) batchInsertCopyImpl(db *sql.DB, ctx context.Context, dbname, schema, table string, keys []string, values ...interface{}) adapters.Scanner {
 	rows, cleanKeys, err := copyRows(keys, values)
 	if err != nil {
 		slog.Error("log details", "err", err)
@@ -1178,40 +1141,7 @@ func (adapter *Postgres) BatchInsertValues(SQL string, values ...interface{}) (s
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	stmt, err := adapter.fullInsert(db, nil, SQL)
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	jsonData := []byte("[")
-	rows, err := stmt.Query(values...)
-	if err != nil {
-		slog.Error("log details", "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	for rows.Next() {
-		if err = rows.Err(); err != nil {
-			slog.Error("log details", "err", err)
-			return &scanner.PrestScanner{Error: err}
-		}
-		var data []byte
-		err = rows.Scan(&data)
-		if err != nil {
-			slog.Error("log details", "err", err)
-			return &scanner.PrestScanner{Error: err}
-		}
-		if !bytes.Equal(jsonData, []byte("[")) {
-			obj := fmt.Sprintf("%s,%s", jsonData, data)
-			jsonData = []byte(obj)
-			continue
-		}
-		jsonData = append(jsonData, data...)
-	}
-	jsonData = append(jsonData, byte(']'))
-	return &scanner.PrestScanner{
-		Buff:    bytes.NewBuffer(jsonData),
-		IsQuery: true,
-	}
+	return adapter.batchInsertValuesImpl(db, SQL, values...)
 }
 
 // BatchInsertValuesCtx execute batch insert sql into a table unsing multi values
@@ -1221,6 +1151,10 @@ func (adapter *Postgres) BatchInsertValuesCtx(ctx context.Context, SQL string, v
 		slog.Error("log details", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
+	return adapter.batchInsertValuesImpl(db, SQL, values...)
+}
+
+func (adapter *Postgres) batchInsertValuesImpl(db *sql.DB, SQL string, values ...interface{}) adapters.Scanner {
 	stmt, err := adapter.fullInsert(db, nil, SQL)
 	if err != nil {
 		slog.Error("log details", "err", err)
@@ -1340,19 +1274,10 @@ func (adapter *Postgres) DeleteWithTransaction(tx *sql.Tx, SQL string, params ..
 	return adapter.delete(nil, tx, SQL, params...)
 }
 
-func (adapter *Postgres) delete(db *sql.DB, tx *sql.Tx, SQL string, params ...interface{}) (sc adapters.Scanner) {
-	slog.Debug("generated SQL", "sql", SQL, "parameters", params)
-	var stmt *sql.Stmt
-	var err error
-	if tx != nil {
-		stmt, err = PrepareTx(tx, SQL)
-	} else {
-		stmt, err = Prepare(db, SQL)
-	}
-	if err != nil {
-		slog.Error("could not prepare sql", "sql", SQL, "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
+// execReturningOrAffected is the shared implementation for delete() and update():
+// if the SQL contains RETURNING, it scans the returned rows into JSON maps;
+// otherwise it executes the statement and returns {rows_affected: N}.
+func execReturningOrAffected(stmt *sql.Stmt, SQL string, params ...interface{}) adapters.Scanner {
 	if strings.Contains(SQL, "RETURNING") {
 		rows, _ := stmt.Query(params...)
 		cols, _ := rows.Columns()
@@ -1381,30 +1306,42 @@ func (adapter *Postgres) delete(db *sql.DB, tx *sql.Tx, SQL string, params ...in
 		}
 		jsonData, _ := json.Marshal(data)
 		return &scanner.PrestScanner{
-			Error: err,
-			Buff:  bytes.NewBuffer(jsonData),
+			Buff: bytes.NewBuffer(jsonData),
 		}
 	}
-	var result sql.Result
-	var rowsAffected int64
-	result, err = stmt.Exec(params...)
+	result, err := stmt.Exec(params...)
 	if err != nil {
-		slog.Error("log details", "err", err)
+		slog.Error("could not execute sql", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
-	rowsAffected, err = result.RowsAffected()
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		slog.Error("log details", "err", err)
+		slog.Error("could not get rows affected", "err", err)
 		return &scanner.PrestScanner{Error: err}
 	}
 	data := make(map[string]interface{})
 	data["rows_affected"] = rowsAffected
-	var jsonData []byte
-	jsonData, err = json.Marshal(data)
+	jsonData, err := json.Marshal(data)
 	return &scanner.PrestScanner{
 		Error: err,
 		Buff:  bytes.NewBuffer(jsonData),
 	}
+}
+
+func (adapter *Postgres) delete(db *sql.DB, tx *sql.Tx, SQL string, params ...interface{}) (sc adapters.Scanner) {
+	slog.Debug("generated SQL", "sql", SQL, "parameters", params)
+	var stmt *sql.Stmt
+	var err error
+	if tx != nil {
+		stmt, err = PrepareTx(tx, SQL)
+	} else {
+		stmt, err = Prepare(db, SQL)
+	}
+	if err != nil {
+		slog.Error("could not prepare sql", "sql", SQL, "err", err)
+		return &scanner.PrestScanner{Error: err}
+	}
+	return execReturningOrAffected(stmt, SQL, params...)
 }
 
 // Update execute update sql into a table
@@ -1445,58 +1382,7 @@ func (adapter *Postgres) update(db *sql.DB, tx *sql.Tx, SQL string, params ...in
 		return &scanner.PrestScanner{Error: err}
 	}
 	slog.Debug("generated SQL", "sql", SQL, "parameters", params)
-	if strings.Contains(SQL, "RETURNING") {
-		rows, _ := stmt.Query(params...)
-		cols, _ := rows.Columns()
-		var data []map[string]interface{}
-		for rows.Next() {
-			columns := make([]interface{}, len(cols))
-			columnPointers := make([]interface{}, len(cols))
-			for i := range columns {
-				columnPointers[i] = &columns[i]
-			}
-			if err := rows.Scan(columnPointers...); err != nil {
-				slog.Error("row scan error", "err", err)
-				os.Exit(1)
-			}
-			m := make(map[string]interface{})
-			for i, colName := range cols {
-				val := columnPointers[i].(*interface{})
-				switch (*val).(type) {
-				case []uint8:
-					m[colName] = string((*val).([]byte))
-				default:
-					m[colName] = *val
-				}
-			}
-			data = append(data, m)
-		}
-		jsonData, _ := json.Marshal(data)
-		return &scanner.PrestScanner{
-			Error: err,
-			Buff:  bytes.NewBuffer(jsonData),
-		}
-	}
-	var result sql.Result
-	var rowsAffected int64
-	result, err = stmt.Exec(params...)
-	if err != nil {
-		slog.Error("could not execute sql", "sql", SQL, "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	rowsAffected, err = result.RowsAffected()
-	if err != nil {
-		slog.Error("could not get rows affected", "sql", SQL, "err", err)
-		return &scanner.PrestScanner{Error: err}
-	}
-	data := make(map[string]interface{})
-	data["rows_affected"] = rowsAffected
-	var jsonData []byte
-	jsonData, err = json.Marshal(data)
-	return &scanner.PrestScanner{
-		Error: err,
-		Buff:  bytes.NewBuffer(jsonData),
-	}
+	return execReturningOrAffected(stmt, SQL, params...)
 }
 
 // GetQueryOperator identify operator on a join
